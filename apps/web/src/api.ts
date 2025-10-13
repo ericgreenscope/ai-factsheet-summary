@@ -16,7 +16,8 @@ const apiClient = axios.create({
 apiClient.interceptors.response.use(
   (response) => response,
   (error: AxiosError) => {
-    const message = error.response?.data?.detail || error.message || 'An error occurred';
+    const errorData = error.response?.data as any;
+    const message = errorData?.detail || errorData?.message || error.message || 'An error occurred';
     console.error('API Error:', message);
     return Promise.reject(new Error(message));
   }
