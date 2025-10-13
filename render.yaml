@@ -23,7 +23,7 @@ services:
   - type: web
     name: esg-factsheet-web
     runtime: static
-    buildCommand: cd apps/web && npm ci && npm run build
+    buildCommand: cd apps/web && npm install && npm run build
     staticPublishPath: apps/web/dist
     envVars:
       - key: VITE_API_BASE_URL
