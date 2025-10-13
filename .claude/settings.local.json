@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(supabase:*)",
+      "Bash(powershell -Command \"Invoke-RestMethod -Uri https://get.scoop.sh | Invoke-Expression\")",
+      "Bash(scoop bucket add:*)",
+      "Bash(scoop install:*)",
+      "Bash(powershell:*)",
+      "Bash(cmd.exe /c \"powershell -NoProfile -Command \"\"scoop bucket add supabase https://github.com/supabase/scoop-bucket.git\"\"\")",
+      "Bash(cmd.exe /c \"powershell -NoProfile -Command \"\"scoop install supabase\"\"\")",
+      "Bash(export PATH=\"$HOME/scoop/shims:$PATH\")",
+      "Bash(scoop:*)",
+      "Bash(cat:*)",
+      "Bash(mkdir:*)",
+      "Bash(cp:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
