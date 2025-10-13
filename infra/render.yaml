@@ -8,9 +8,9 @@ services:
     startCommand: cd apps/api && uvicorn main:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: SUPABASE_URL
-        sync: false
+        value: https://gzyecykmsjexhvunyskw.supabase.co
       - key: SUPABASE_SERVICE_ROLE_KEY
-        sync: false
+        value: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd6eWVjeWttc2pleGh2dW55c2t3Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2MDMwNDc5OSwiZXhwIjoyMDc1ODgwNzk5fQ.dJnlTzml-BMvNuNTkSN9Rs-EIcjmd0jJnCjMGa2gfHk
       - key: OPENAI_API_KEY
         sync: false
       - key: OPENAI_MODEL
