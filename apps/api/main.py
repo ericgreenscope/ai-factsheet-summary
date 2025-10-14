@@ -46,8 +46,7 @@ def get_supabase_client() -> Client:
         )
     return _supabase_client
 
-# For backward compatibility, expose as supabase
-supabase = None
+# Supabase client is now accessed via get_supabase_client()
 
 
 # Pydantic models
@@ -173,7 +172,7 @@ async def analyze_file(file_id: str):
         file_record = file_response.data[0]
         
         # Download PPTX from storage
-        pptx_bytes = download_file_from_storage(supabase, file_record["storage_path_original"])
+        pptx_bytes = download_file_from_storage(get_supabase_client(), file_record["storage_path_original"])
         
         # Extract text
         extracted_text = extract_text_from_pptx(pptx_bytes)
@@ -305,7 +304,7 @@ async def approve_and_regenerate(file_id: str):
         summary_text = format_summary_for_pptx(strengths, weaknesses, action_plan)
         
         # Download original PPTX
-        pptx_bytes = download_file_from_storage(supabase, file_record["storage_path_original"])
+        pptx_bytes = download_file_from_storage(get_supabase_client(), file_record["storage_path_original"])
         
         # Insert text into AI_SUMMARY shape
         try:
@@ -320,7 +319,7 @@ async def approve_and_regenerate(file_id: str):
         
         # Upload regenerated PPTX
         storage_path_regenerated = upload_file_to_storage(
-            supabase,
+            get_supabase_client(),
             file_id,
             regenerated_pptx,
             folder="regenerated"
@@ -390,13 +389,13 @@ async def get_file(file_id: str):
     
     if file_record.get("storage_path_original"):
         try:
-            download_url_original = get_signed_url(supabase, file_record["storage_path_original"])
+            download_url_original = get_signed_url(get_supabase_client(), file_record["storage_path_original"])
         except:
             pass
     
     if file_record.get("storage_path_regenerated"):
         try:
-            download_url_regenerated = get_signed_url(supabase, file_record["storage_path_regenerated"])
+            download_url_regenerated = get_signed_url(get_supabase_client(), file_record["storage_path_regenerated"])
         except:
             pass
     
