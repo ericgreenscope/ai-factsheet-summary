@@ -33,10 +33,21 @@ app.add_middleware(
 )
 
 # Initialize Supabase client
-supabase: Client = create_client(
-    settings.supabase_url,
-    settings.supabase_service_role_key
-)
+# Initialize Supabase client lazily to avoid import-time issues
+_supabase_client = None
+
+def get_supabase_client() -> Client:
+    """Get Supabase client, creating it if necessary."""
+    global _supabase_client
+    if _supabase_client is None:
+        _supabase_client = create_client(
+            settings.supabase_url,
+            settings.supabase_service_role_key
+        )
+    return _supabase_client
+
+# For backward compatibility, expose as supabase
+supabase = None
 
 
 # Pydantic models
@@ -99,14 +110,14 @@ async def upload_files(
         # Upload to Supabase Storage
         try:
             storage_path = upload_file_to_storage(
-                supabase,
+                get_supabase_client(),
                 file_id,
                 file_data,
                 folder="original"
             )
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Failed to upload {file.filename}: {str(e)}")
-        
+
         # Insert file record
         file_record = {
             "id": file_id,
@@ -115,9 +126,9 @@ async def upload_files(
             "storage_path_original": storage_path,
             "language": "en"
         }
-        
+
         try:
-            response = supabase.table("files").insert(file_record).execute()
+            response = get_supabase_client().table("files").insert(file_record).execute()
             created_file = response.data[0] if response.data else file_record
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Failed to create file record: {str(e)}")
@@ -149,13 +160,13 @@ async def analyze_file(file_id: str):
     }
     
     try:
-        supabase.table("jobs").insert(job_record).execute()
+        get_supabase_client().table("jobs").insert(job_record).execute()
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to create job: {str(e)}")
     
     try:
         # Get file record
-        file_response = supabase.table("files").select("*").eq("id", file_id).execute()
+        file_response = get_supabase_client().table("files").select("*").eq("id", file_id).execute()
         if not file_response.data:
             raise HTTPException(status_code=404, detail="File not found")
         
@@ -184,17 +195,17 @@ async def analyze_file(file_id: str):
             "action_plan": format_bullets_as_text(summary["action_plan"])
         }
         
-        suggestion_response = supabase.table("suggestions").insert(suggestion_record).execute()
+        suggestion_response = get_supabase_client().table("suggestions").insert(suggestion_record).execute()
         created_suggestion = suggestion_response.data[0] if suggestion_response.data else suggestion_record
         
         # Update job status
-        supabase.table("jobs").update({"status": "SUCCEEDED"}).eq("id", job_id).execute()
+        get_supabase_client().table("jobs").update({"status": "SUCCEEDED"}).eq("id", job_id).execute()
         
         return created_suggestion
         
     except Exception as e:
         # Update job status to failed
-        supabase.table("jobs").update({
+        get_supabase_client().table("jobs").update({
             "status": "FAILED",
             "error": str(e)
         }).eq("id", job_id).execute()
@@ -216,7 +227,7 @@ async def save_review(file_id: str, review: ReviewRequest):
         Created/updated review record
     """
     # Check if review already exists for this file
-    existing_response = supabase.table("reviews").select("*").eq("file_id", file_id).execute()
+    existing_response = get_supabase_client().table("reviews").select("*").eq("file_id", file_id).execute()
     
     review_data = {
         "file_id": file_id,
@@ -231,11 +242,11 @@ async def save_review(file_id: str, review: ReviewRequest):
     if existing_response.data:
         # Update existing review
         review_id = existing_response.data[0]["id"]
-        response = supabase.table("reviews").update(review_data).eq("id", review_id).execute()
+        response = get_supabase_client().table("reviews").update(review_data).eq("id", review_id).execute()
     else:
         # Create new review
         review_data["id"] = str(uuid.uuid4())
-        response = supabase.table("reviews").insert(review_data).execute()
+        response = get_supabase_client().table("reviews").insert(review_data).execute()
     
     return response.data[0] if response.data else review_data
 
@@ -262,20 +273,20 @@ async def approve_and_regenerate(file_id: str):
     }
     
     try:
-        supabase.table("jobs").insert(job_record).execute()
+        get_supabase_client().table("jobs").insert(job_record).execute()
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to create job: {str(e)}")
     
     try:
         # Get file record
-        file_response = supabase.table("files").select("*").eq("id", file_id).execute()
+        file_response = get_supabase_client().table("files").select("*").eq("id", file_id).execute()
         if not file_response.data:
             raise HTTPException(status_code=404, detail="File not found")
         
         file_record = file_response.data[0]
         
         # Get latest review
-        review_response = supabase.table("reviews").select("*").eq("file_id", file_id).execute()
+        review_response = get_supabase_client().table("reviews").select("*").eq("file_id", file_id).execute()
         if not review_response.data:
             raise HTTPException(status_code=404, detail="No review found for this file")
         
@@ -301,7 +312,7 @@ async def approve_and_regenerate(file_id: str):
             regenerated_pptx = insert_text_into_ai_summary(pptx_bytes, summary_text)
         except ValueError as e:
             # Update job status to failed
-            supabase.table("jobs").update({
+            get_supabase_client().table("jobs").update({
                 "status": "FAILED",
                 "error": str(e)
             }).eq("id", job_id).execute()
@@ -316,25 +327,25 @@ async def approve_and_regenerate(file_id: str):
         )
         
         # Update file record
-        supabase.table("files").update({
+        get_supabase_client().table("files").update({
             "storage_path_regenerated": storage_path_regenerated
         }).eq("id", file_id).execute()
         
         # Mark review as approved
-        supabase.table("reviews").update({"status": "APPROVED"}).eq("id", review["id"]).execute()
+        get_supabase_client().table("reviews").update({"status": "APPROVED"}).eq("id", review["id"]).execute()
         
         # Update job status
-        supabase.table("jobs").update({"status": "SUCCEEDED"}).eq("id", job_id).execute()
+        get_supabase_client().table("jobs").update({"status": "SUCCEEDED"}).eq("id", job_id).execute()
         
         # Return updated file record
-        updated_file = supabase.table("files").select("*").eq("id", file_id).execute()
+        updated_file = get_supabase_client().table("files").select("*").eq("id", file_id).execute()
         return updated_file.data[0] if updated_file.data else file_record
         
     except HTTPException:
         raise
     except Exception as e:
         # Update job status to failed
-        supabase.table("jobs").update({
+        get_supabase_client().table("jobs").update({
             "status": "FAILED",
             "error": str(e)
         }).eq("id", job_id).execute()
@@ -355,22 +366,22 @@ async def get_file(file_id: str):
         File record with merged data
     """
     # Get file record
-    file_response = supabase.table("files").select("*").eq("id", file_id).execute()
+    file_response = get_supabase_client().table("files").select("*").eq("id", file_id).execute()
     if not file_response.data:
         raise HTTPException(status_code=404, detail="File not found")
     
     file_record = file_response.data[0]
     
     # Get latest suggestion
-    suggestion_response = supabase.table("suggestions").select("*").eq("file_id", file_id).order("created_at", desc=True).limit(1).execute()
+    suggestion_response = get_supabase_client().table("suggestions").select("*").eq("file_id", file_id).order("created_at", desc=True).limit(1).execute()
     suggestion = suggestion_response.data[0] if suggestion_response.data else None
     
     # Get latest review
-    review_response = supabase.table("reviews").select("*").eq("file_id", file_id).order("updated_at", desc=True).limit(1).execute()
+    review_response = get_supabase_client().table("reviews").select("*").eq("file_id", file_id).order("updated_at", desc=True).limit(1).execute()
     review = review_response.data[0] if review_response.data else None
     
     # Get jobs
-    jobs_response = supabase.table("jobs").select("*").eq("file_id", file_id).order("created_at", desc=True).execute()
+    jobs_response = get_supabase_client().table("jobs").select("*").eq("file_id", file_id).order("created_at", desc=True).execute()
     jobs = jobs_response.data if jobs_response.data else []
     
     # Generate signed URLs
@@ -411,7 +422,7 @@ async def list_files():
     Returns:
         List of file records
     """
-    response = supabase.table("files").select("*").order("created_at", desc=True).execute()
+    response = get_supabase_client().table("files").select("*").order("created_at", desc=True).execute()
     return response.data if response.data else []
 
 
@@ -425,7 +436,7 @@ async def export_to_excel():
         Excel file download
     """
     # Get all approved reviews with file info
-    reviews_response = supabase.table("reviews").select("*, files(*)").eq("status", "APPROVED").execute()
+    reviews_response = get_supabase_client().table("reviews").select("*, files(*)").eq("status", "APPROVED").execute()
     
     if not reviews_response.data:
         raise HTTPException(status_code=404, detail="No approved reviews found")
