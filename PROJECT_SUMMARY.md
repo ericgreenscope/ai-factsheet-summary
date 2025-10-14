@@ -2,7 +2,7 @@
 
 ## Overview
 
-A full-stack application that processes ESG factsheet presentations, generates AI-powered summaries using OpenAI, allows human review and editing, and regenerates PPTX files with approved summaries inserted into predefined placeholders.
+A full-stack application that processes ESG factsheet presentations, generates AI-powered summaries using Google Gemini Pro, allows human review and editing, and regenerates PPTX files with approved summaries inserted into predefined placeholders.
 
 ## Delivered Components
 
@@ -14,7 +14,7 @@ A full-stack application that processes ESG factsheet presentations, generates A
 - `config.py` - Environment configuration management
 - `storage.py` - Supabase Storage utilities (upload, download, signed URLs)
 - `pptx_utils.py` - PPTX text extraction and AI_SUMMARY manipulation
-- `ai_service.py` - OpenAI integration with prompt engineering
+- `ai_service.py` - Gemini integration with prompt engineering
 - `requirements.txt` - Python dependencies
 
 **Test Files:**
@@ -94,7 +94,7 @@ A full-stack application that processes ESG factsheet presentations, generates A
 ### ✅ Core Functionality
 - [x] Batch PPTX upload with Supabase Storage
 - [x] Text extraction from all slides (including tables)
-- [x] AI summary generation with OpenAI (GPT-4o-mini)
+- [x] AI summary generation with Google Gemini Pro
 - [x] Three-section output: Strengths, Weaknesses, Action Plan (12 months)
 - [x] Human review and editing interface
 - [x] Approve and regenerate PPTX workflow
@@ -113,7 +113,7 @@ A full-stack application that processes ESG factsheet presentations, generates A
 - [x] Structured JSON response format
 
 ### ✅ Technical Requirements
-- [x] Server-side OpenAI calls (no client exposure)
+- [x] Server-side Gemini calls (no client exposure)
 - [x] Raw model output stored for audit trail
 - [x] Jobs table for async operation tracking
 - [x] Signed URLs with expiry for downloads
@@ -149,7 +149,7 @@ A full-stack application that processes ESG factsheet presentations, generates A
 **Backend:**
 - FastAPI (Python web framework)
 - python-pptx (PPTX manipulation)
-- OpenAI Python SDK (AI integration)
+- Google Gemini API integration
 - Supabase Python client (database & storage)
 - openpyxl (Excel export)
 - Pydantic (validation & settings)
@@ -164,7 +164,7 @@ A full-stack application that processes ESG factsheet presentations, generates A
 
 **Infrastructure:**
 - Supabase (PostgreSQL database + Storage)
-- OpenAI API (GPT-4o-mini)
+- Google Gemini Pro API
 - Render (deployment platform)
 
 ## Project Structure
@@ -232,7 +232,7 @@ VITE_API_BASE_URL=http://localhost:8000
 2. **Store** → Files saved to Supabase Storage, records created in database
 3. **Analyze** → User triggers analysis (or auto-triggered)
 4. **Extract** → Backend extracts all text from PPTX slides
-5. **Generate** → OpenAI generates structured summary (Strengths, Weaknesses, Action Plan)
+5. **Generate** → Gemini generates structured summary (Strengths, Weaknesses, Action Plan)
 6. **Store** → Suggestion saved with raw model output for audit
 7. **Review** → Human reviews and edits AI suggestions
 8. **Save** → Draft saved to reviews table
@@ -245,7 +245,7 @@ VITE_API_BASE_URL=http://localhost:8000
 ## Performance Characteristics
 
 - **Typical Analysis Time:** 30-180 seconds per file
-  - Depends on: PPTX size, text volume, OpenAI API latency
+  - Depends on: PPTX size, text volume, Gemini API latency
 - **Context Handling:** Text truncated at ~80k chars for LLM safety
 - **Concurrent Processing:** Frontend polling allows multi-file tracking
 - **Database Queries:** Optimized with indexes on key fields
@@ -278,7 +278,7 @@ VITE_API_BASE_URL=http://localhost:8000
 ## Acceptance Criteria Status
 
 ✅ **Batch upload of 5+ PPTX files** - Supported and tested
-✅ **AI-generated suggestions** - Implemented with OpenAI
+✅ **AI-generated suggestions** - Implemented with Gemini
 ✅ **Human review and editing** - Full review interface
 ✅ **Approve and regenerate** - Working with AI_SUMMARY insertion
 ✅ **Identical PPTX output** - Original preserved except filled placeholder
@@ -311,7 +311,7 @@ VITE_API_BASE_URL=http://localhost:8000
 - Synchronous processing (polling-based)
 - No authentication (open access)
 - Single AI_SUMMARY placeholder per PPTX
-- No retry mechanism for failed OpenAI calls
+- No retry mechanism for failed Gemini calls
 - No file encryption at rest (Supabase default)
 - No rate limiting
 - No data retention policy enforcement

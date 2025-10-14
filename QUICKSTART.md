@@ -7,7 +7,7 @@ This guide will help you get the application running locally in minutes.
 - **Python 3.11+** (for backend)
 - **Node.js 18+** and npm (for frontend)
 - **Supabase account** (free tier works)
-- **OpenAI API key** (with credits)
+- **Google Gemini Pro API key** (free tier available)
 
 ## Step 1: Clone and Setup
 
@@ -83,8 +83,8 @@ pip install -r requirements.txt
 cat > .env << EOF
 SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=your-service-role-key-here
-OPENAI_API_KEY=sk-your-openai-key-here
-OPENAI_MODEL=gpt-4o-mini
+OPENAI_API_KEY=AIzaSy-your-gemini-api-key-here
+OPENAI_MODEL=gemini-pro
 CORS_ORIGIN=http://localhost:5173
 EOF
 
@@ -182,7 +182,7 @@ pip install -r requirements.txt
 - Verify bucket "factsheets" exists in Supabase Storage
 
 **"OpenAI API error":**
-- Verify your OPENAI_API_KEY is correct
+- Verify your GEMINI_API_KEY is correct
 - Check you have available credits
 
 ### Frontend Issues

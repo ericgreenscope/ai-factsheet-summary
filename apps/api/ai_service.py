@@ -1,7 +1,7 @@
-"""OpenAI integration for ESG summary generation."""
+"""Gemini integration for ESG summary generation."""
 import json
+import requests
 from typing import Dict, List
-from openai import OpenAI
 from config import settings
 
 
@@ -30,60 +30,75 @@ Return STRICT JSON:
 
 def generate_esg_summary(
     extracted_text: str,
-    model: str = None
+    model: str = "gemini-pro"
 ) -> Dict[str, any]:
     """
-    Generate ESG summary using OpenAI API.
-    
+    Generate ESG summary using Google Gemini API.
+
     Args:
         extracted_text: Flattened text from PPTX
-        model: OpenAI model to use (default from settings)
-    
+        model: Gemini model to use (default: gemini-pro)
+
     Returns:
         Dict with keys: strengths, weaknesses, action_plan, raw_output, model_name
-    
+
     Raises:
-        ValueError: If response cannot be parsed
+        ValueError: If response cannot be parsed or API fails
     """
-    if model is None:
-        model = settings.openai_model
-    
-    client = OpenAI(api_key=settings.openai_api_key)
-    
-    # Build user prompt
+    api_key = settings.openai_api_key  # Using same env var for now
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
+
+    # Build prompt
     user_prompt = USER_PROMPT_TEMPLATE.format(flat_slide_text=extracted_text)
-    
-    # Call OpenAI API
-    response = client.chat.completions.create(
-        model=model,
-        messages=[
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": user_prompt}
+
+    # Prepare request payload for Gemini
+    payload = {
+        "contents": [
+            {
+                "parts": [
+                    {"text": SYSTEM_PROMPT},
+                    {"text": user_prompt}
+                ]
+            }
         ],
-        temperature=0.2,
-        response_format={"type": "json_object"}
-    )
-    
-    # Extract response
-    raw_output = response.choices[0].message.content
-    
-    # Parse JSON response
-    try:
-        parsed = json.loads(raw_output)
-    except json.JSONDecodeError as e:
-        raise ValueError(f"Failed to parse OpenAI response as JSON: {e}")
-    
-    # Validate structure
-    if not all(key in parsed for key in ["strengths", "weaknesses", "action_plan"]):
-        raise ValueError("OpenAI response missing required keys")
-    
-    return {
-        "strengths": parsed["strengths"],
-        "weaknesses": parsed["weaknesses"],
-        "action_plan": parsed["action_plan"],
-        "raw_output": json.loads(raw_output),  # Store as dict for JSONB
-        "model_name": model
+        "generationConfig": {
+            "temperature": 0.2,
+            "maxOutputTokens": 2048,
+            "responseMimeType": "application/json"
+        }
     }
+
+    # Call Gemini API
+    try:
+        response = requests.post(url, json=payload, timeout=60)
+        response.raise_for_status()
+
+        # Extract response
+        result = response.json()
+        raw_output = result["candidates"][0]["content"]["parts"][0]["text"]
+
+        # Parse JSON response
+        try:
+            parsed = json.loads(raw_output)
+        except json.JSONDecodeError as e:
+            raise ValueError(f"Failed to parse Gemini response as JSON: {e}")
+
+        # Validate structure
+        if not all(key in parsed for key in ["strengths", "weaknesses", "action_plan"]):
+            raise ValueError("Gemini response missing required keys")
+
+        return {
+            "strengths": parsed["strengths"],
+            "weaknesses": parsed["weaknesses"],
+            "action_plan": parsed["action_plan"],
+            "raw_output": parsed,  # Store as dict for JSONB
+            "model_name": model
+        }
+
+    except requests.exceptions.RequestException as e:
+        raise ValueError(f"Gemini API request failed: {e}")
+    except (KeyError, IndexError) as e:
+        raise ValueError(f"Gemini API response format error: {e}")
 
 
 def format_summary_for_pptx(

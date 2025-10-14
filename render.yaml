@@ -12,9 +12,9 @@ services:
       - key: SUPABASE_SERVICE_ROLE_KEY
         value: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd6eWVjeWttc2pleGh2dW55c2t3Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2MDMwNDc5OSwiZXhwIjoyMDc1ODgwNzk5fQ.dJnlTzml-BMvNuNTkSN9Rs-EIcjmd0jJnCjMGa2gfHk
       - key: OPENAI_API_KEY
-        sync: false
+        value: AIzaSyBneNuvOrOJFjasUKMwEWhqCbso2AXFiG8
       - key: OPENAI_MODEL
-        value: gpt-4o-mini
+        value: gemini-pro
       - key: CORS_ORIGIN
         sync: false
     healthCheckPath: /healthz

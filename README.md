@@ -8,7 +8,7 @@ A full-stack application for ingesting ESG factsheets (PPTX), generating AI-powe
 - **Backend**: FastAPI + Python (`apps/api/`)
 - **Database**: Supabase (PostgreSQL)
 - **Storage**: Supabase Storage
-- **AI**: OpenAI API (GPT-4o-mini)
+- **AI**: Google Gemini Pro API
 - **Deployment**: Render (two services)
 
 ## Features

@@ -8,7 +8,7 @@ FastAPI backend for processing ESG factsheets, generating AI summaries, and rege
 - **Python**: 3.11+
 - **Database**: Supabase (PostgreSQL)
 - **Storage**: Supabase Storage
-- **AI**: OpenAI API (GPT-4o-mini)
+- **AI**: Google Gemini Pro API
 - **PPTX Processing**: python-pptx
 
 ## Setup
@@ -36,8 +36,8 @@ pip install -r requirements.txt
 ```bash
 SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
-OPENAI_API_KEY=sk-your-openai-key
-OPENAI_MODEL=gpt-4o-mini
+OPENAI_API_KEY=AIzaSy-your-gemini-api-key
+OPENAI_MODEL=gemini-pro
 CORS_ORIGIN=http://localhost:5173
 ```
 
@@ -140,8 +140,8 @@ This creates `test_factsheet.pptx` with an AI_SUMMARY placeholder for testing.
 |----------|----------|---------|-------------|
 | `SUPABASE_URL` | Yes | - | Supabase project URL |
 | `SUPABASE_SERVICE_ROLE_KEY` | Yes | - | Service role key (server-side only) |
-| `OPENAI_API_KEY` | Yes | - | OpenAI API key |
-| `OPENAI_MODEL` | No | gpt-4o-mini | OpenAI model to use |
+| `OPENAI_API_KEY` | Yes | - | Google Gemini API key |
+| `OPENAI_MODEL` | No | gemini-pro | Gemini model to use |
 | `CORS_ORIGIN` | No | http://localhost:5173 | Allowed CORS origin |
 
 ## Deployment
