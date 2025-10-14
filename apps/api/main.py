@@ -24,13 +24,7 @@ app = FastAPI(
 )
 
 # CORS middleware
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[settings.cors_origin],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# CORS middleware will be added after app creation
 
 # Initialize Supabase client
 # Initialize Supabase client lazily to avoid import-time issues
@@ -68,6 +62,16 @@ class FileResponse(BaseModel):
     jobs: List[dict] = []
     download_url_original: Optional[str] = None
     download_url_regenerated: Optional[str] = None
+
+
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[settings.cors_origin],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 # Health check endpoint
