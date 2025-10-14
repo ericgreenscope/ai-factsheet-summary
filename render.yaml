@@ -19,7 +19,7 @@ services:
         fromService:
           type: web
           name: esg-factsheet-web
-          property: host
+          property: url
     healthCheckPath: /healthz
 
   # React Frontend Static Site
@@ -33,7 +33,7 @@ services:
         fromService:
           type: web
           name: esg-factsheet-api
-          property: host
+          property: url
     headers:
       - path: /*
         name: X-Frame-Options
