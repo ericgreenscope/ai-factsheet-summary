@@ -3,9 +3,9 @@ services:
   - type: web
     name: esg-factsheet-api
     runtime: python
-    runtimeVersion: 3.11
+    runtimeVersion: "python-3.11"
     plan: free
-    buildCommand: python --version && python -m pip install --upgrade pip && pip install --no-cache-dir -r apps/api/requirements.txt
+    buildCommand: python --version && python -m pip install --upgrade pip && pip install --no-cache-dir --only-binary=:all: -r apps/api/requirements.txt
     startCommand: cd apps/api && uvicorn main:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: SUPABASE_URL
