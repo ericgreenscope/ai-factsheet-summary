@@ -14,7 +14,7 @@ services:
       - key: OPENAI_API_KEY
         value: AIzaSyBneNuvOrOJFjasUKMwEWhqCbso2AXFiG8
       - key: OPENAI_MODEL
-        value: gemini-pro
+        value: gemini-1.5-flash
       - key: CORS_ORIGIN
         sync: false
     healthCheckPath: /healthz

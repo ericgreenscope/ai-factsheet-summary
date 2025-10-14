@@ -30,14 +30,14 @@ Return STRICT JSON:
 
 def generate_esg_summary(
     extracted_text: str,
-    model: str = "gemini-pro"
+    model: str = "gemini-1.5-flash"
 ) -> Dict[str, any]:
     """
     Generate ESG summary using Google Gemini API.
 
     Args:
         extracted_text: Flattened text from PPTX
-        model: Gemini model to use (default: gemini-pro)
+        model: Gemini model to use (default: gemini-1.5-flash)
 
     Returns:
         Dict with keys: strengths, weaknesses, action_plan, raw_output, model_name
@@ -46,7 +46,7 @@ def generate_esg_summary(
         ValueError: If response cannot be parsed or API fails
     """
     api_key = settings.openai_api_key  # Using same env var for now
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}/generateContent?key={api_key}"
 
     # Build prompt
     user_prompt = USER_PROMPT_TEMPLATE.format(flat_slide_text=extracted_text)
