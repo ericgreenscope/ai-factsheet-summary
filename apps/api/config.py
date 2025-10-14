@@ -10,7 +10,7 @@ class Settings(BaseSettings):
     supabase_service_role_key: str
     supabase_anon_key: Optional[str] = None
     openai_api_key: str  # Using same env var name for Gemini API key
-    openai_model: str = "gemini-1.5-flash-latest"
+    openai_model: str = "gemini-1.5-flash"
     cors_origin: str = "http://localhost:5173"
     
     class Config:

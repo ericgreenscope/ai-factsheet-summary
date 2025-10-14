@@ -30,14 +30,14 @@ Return STRICT JSON:
 
 def generate_esg_summary(
     extracted_text: str,
-    model: str = "gemini-1.5-flash-latest"
+    model: str = "gemini-1.5-flash"
 ) -> Dict[str, any]:
     """
     Generate ESG summary using Google Gemini API.
 
     Args:
         extracted_text: Flattened text from PPTX
-        model: Gemini model to use (default: gemini-1.5-flash-latest)
+        model: Gemini model to use (default: gemini-1.5-flash)
 
     Returns:
         Dict with keys: strengths, weaknesses, action_plan, raw_output, model_name

@@ -37,7 +37,7 @@ pip install -r requirements.txt
 SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 OPENAI_API_KEY=AIzaSy-your-gemini-api-key
-OPENAI_MODEL=gemini-1.5-flash-latest
+OPENAI_MODEL=gemini-1.5-flash
 CORS_ORIGIN=http://localhost:5173
 ```
 
