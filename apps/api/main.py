@@ -34,10 +34,19 @@ def get_supabase_client() -> Client:
     """Get Supabase client, creating it if necessary."""
     global _supabase_client
     if _supabase_client is None:
-        _supabase_client = create_client(
-            settings.supabase_url,
-            settings.supabase_service_role_key
-        )
+        try:
+            _supabase_client = create_client(
+                settings.supabase_url,
+                settings.supabase_service_role_key
+            )
+        except Exception as e:
+            print(f"Supabase client creation error: {e}")
+            # Try alternative initialization
+            from supabase import create_client as create_supabase_client
+            _supabase_client = create_supabase_client(
+                settings.supabase_url,
+                settings.supabase_service_role_key
+            )
     return _supabase_client
 
 # Supabase client is now accessed via get_supabase_client()
