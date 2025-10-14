@@ -17,7 +17,10 @@ services:
       - key: OPENAI_MODEL
         value: gemini-pro
       - key: CORS_ORIGIN
-        generateValue: true
+        fromService:
+          type: web
+          name: esg-factsheet-web
+          property: host
     healthCheckPath: /healthz
 
   # React Frontend Static Site
@@ -28,7 +31,10 @@ services:
     staticPublishPath: apps/web/dist
     envVars:
       - key: VITE_API_BASE_URL
-        generateValue: true
+        fromService:
+          type: web
+          name: esg-factsheet-api
+          property: host
     headers:
       - path: /*
         name: X-Frame-Options
