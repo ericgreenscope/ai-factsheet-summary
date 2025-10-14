@@ -3,7 +3,13 @@
  */
 import axios, { AxiosError } from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+// Ensure API_BASE_URL has protocol, otherwise treat as relative path issue
+let API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+
+// Safety check: if URL doesn't start with http:// or https://, prepend https://
+if (API_BASE_URL && !API_BASE_URL.startsWith('http://') && !API_BASE_URL.startsWith('https://')) {
+  API_BASE_URL = `https://${API_BASE_URL}`;
+}
 
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
