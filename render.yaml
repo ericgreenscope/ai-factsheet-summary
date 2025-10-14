@@ -3,7 +3,7 @@ services:
   - type: web
     name: esg-factsheet-api
     runtime: python
-    runtimeVersion: "3.11"
+    runtimeVersion: python-3.11.9
     plan: free
     buildCommand: pip install -r apps/api/requirements.txt
     startCommand: cd apps/api && uvicorn main:app --host 0.0.0.0 --port $PORT
