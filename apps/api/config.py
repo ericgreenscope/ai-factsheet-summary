@@ -17,6 +17,12 @@ class Settings(BaseSettings):
         env_file = ".env"
         case_sensitive = False
 
+    @classmethod
+    def get_cors_origin(cls) -> str:
+        """Get CORS origin from environment variable or use default."""
+        import os
+        return os.getenv("CORS_ORIGIN", cls.cors_origin)
+
 
 # Global settings instance
 settings = Settings()
