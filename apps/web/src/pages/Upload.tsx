@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import Uploader from '../components/Uploader'
+import DualUploader from '../components/DualUploader'
 import { uploadFiles } from '../api'
 
 const Upload: React.FC = () => {
@@ -47,6 +47,12 @@ const Upload: React.FC = () => {
       return
     }
 
+    // Check that we have complete pairs
+    if (pptxFiles.length !== pdfFiles.length) {
+      setError('All files must have matching pairs. Please ensure each PPTX file has a corresponding PDF file with the same name.')
+      return
+    }
+
     setUploading(true)
     setError(null)
 
@@ -66,17 +72,22 @@ const Upload: React.FC = () => {
   }
 
   return (
-    <div className="max-w-4xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
+    <div className="max-w-6xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
       <div className="space-y-8">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Upload ESG Factsheets</h1>
           <p className="mt-2 text-sm text-gray-600">
-            Upload PPTX and PDF file pairs for each factsheet. Files should have matching names (e.g., "report.pptx" and "report.pdf").
+            Upload PPTX and PDF files in separate columns. Files will be automatically matched by name (excluding extension).
           </p>
-          <ul className="mt-2 text-sm text-gray-600 list-disc list-inside space-y-1">
-            <li><strong>PPTX file:</strong> Used for regenerating output with AI summary (must contain AI_SUMMARY placeholder)</li>
-            <li><strong>PDF file:</strong> Used for AI analysis (preserves charts, images, and visual elements)</li>
-          </ul>
+          <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-md">
+            <h3 className="text-sm font-medium text-blue-900 mb-2">How it works:</h3>
+            <ul className="text-sm text-blue-800 space-y-1">
+              <li>• Upload PPTX files in the left column - these are used for <strong>generating output</strong> with AI summaries</li>
+              <li>• Upload PDF files in the right column - these are used for <strong>AI analysis</strong> (preserves charts and visual elements)</li>
+              <li>• Files are automatically matched by name (e.g., "company-report.pptx" matches with "company-report.pdf")</li>
+              <li>• Both files must be present to complete a pair and enable upload</li>
+            </ul>
+          </div>
         </div>
 
         <div className="bg-white shadow rounded-lg p-6 space-y-6">
@@ -95,38 +106,7 @@ const Upload: React.FC = () => {
             />
           </div>
 
-          <Uploader onFilesSelected={handleFilesSelected} disabled={uploading} />
-
-          {selectedFiles.length > 0 && (
-            <div className="space-y-2">
-              <h3 className="text-sm font-medium text-gray-700">
-                Selected Files ({selectedFiles.length})
-              </h3>
-              <ul className="divide-y divide-gray-200 border border-gray-200 rounded-md">
-                {selectedFiles.map((file, index) => (
-                  <li key={index} className="flex items-center justify-between px-4 py-3">
-                    <div className="flex items-center">
-                      <svg className="h-5 w-5 text-gray-400 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M8 4a3 3 0 00-3 3v4a5 5 0 0010 0V7a1 1 0 112 0v4a7 7 0 11-14 0V7a5 5 0 0110 0v4a3 3 0 11-6 0V7a1 1 0 012 0v4a1 1 0 102 0V7a3 3 0 00-3-3z" clipRule="evenodd" />
-                      </svg>
-                      <span className="text-sm text-gray-900">{file.name}</span>
-                      <span className="ml-2 text-xs text-gray-500">
-                        ({(file.size / 1024 / 1024).toFixed(2)} MB)
-                      </span>
-                    </div>
-                    {!uploading && (
-                      <button
-                        onClick={() => handleRemoveFile(index)}
-                        className="text-red-600 hover:text-red-800 text-sm font-medium"
-                      >
-                        Remove
-                      </button>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
+          <DualUploader onFilesSelected={handleFilesSelected} disabled={uploading} />
 
           {error && (
             <div className="bg-red-50 border border-red-200 rounded-md p-4">
@@ -153,7 +133,7 @@ const Upload: React.FC = () => {
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                 </svg>
               )}
-              {uploading ? 'Uploading...' : 'Upload & Continue'}
+              {uploading ? 'Uploading...' : 'Upload Complete Pairs'}
             </button>
           </div>
         </div>
