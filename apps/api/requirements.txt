@@ -8,7 +8,7 @@ openpyxl==3.1.2
 pydantic==2.10.4
 pydantic-settings==2.7.1
 pytest==7.4.4
-httpx==0.24.1
+httpx==0.26.0
 google-generativeai==0.8.3
-# Updated dependencies for deployment - supabase updated to 2.22.0 to fix proxy parameter error
+# Updated dependencies for deployment - supabase 2.22.0 requires httpx>=0.26
 
