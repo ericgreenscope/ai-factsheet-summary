@@ -1,14 +1,20 @@
 """PDF conversion utilities for PPTX files."""
-import subprocess
+import io
+from pptx import Presentation
+from reportlab.lib.pagesizes import letter
+from reportlab.pdfgen import canvas
+from reportlab.lib.utils import ImageReader
+from PIL import Image
 import tempfile
-import os
 from pathlib import Path
-from typing import Union
 
 
 def convert_pptx_to_pdf(pptx_bytes: bytes) -> bytes:
     """
-    Convert PPTX file to PDF using LibreOffice.
+    Convert PPTX file to PDF using Python libraries.
+
+    This creates a simple PDF representation of the PPTX slides.
+    For better quality, consider using a cloud conversion service.
 
     Args:
         pptx_bytes: PPTX file content as bytes
@@ -19,60 +25,63 @@ def convert_pptx_to_pdf(pptx_bytes: bytes) -> bytes:
     Raises:
         RuntimeError: If conversion fails
     """
-    # Create temporary directory for conversion
-    with tempfile.TemporaryDirectory() as temp_dir:
-        temp_path = Path(temp_dir)
+    try:
+        # Load presentation
+        prs = Presentation(io.BytesIO(pptx_bytes))
 
-        # Write PPTX to temp file
-        pptx_path = temp_path / "input.pptx"
-        pptx_path.write_bytes(pptx_bytes)
+        # Create PDF in memory
+        pdf_buffer = io.BytesIO()
+        c = canvas.Canvas(pdf_buffer, pagesize=letter)
+        width, height = letter
 
-        # Convert using LibreOffice
-        try:
-            result = subprocess.run(
-                [
-                    "soffice",
-                    "--headless",
-                    "--convert-to", "pdf",
-                    "--outdir", str(temp_path),
-                    str(pptx_path)
-                ],
-                capture_output=True,
-                text=True,
-                timeout=60,
-                check=True
-            )
+        # Process each slide
+        for slide_num, slide in enumerate(prs.slides, 1):
+            # Extract text from slide
+            text_content = []
+            for shape in slide.shapes:
+                if hasattr(shape, "text") and shape.text:
+                    text_content.append(shape.text)
 
-            # Check if PDF was created
-            pdf_path = temp_path / "input.pdf"
-            if not pdf_path.exists():
-                raise RuntimeError(f"PDF conversion failed: {result.stderr}")
+            # Draw slide number
+            c.setFont("Helvetica-Bold", 16)
+            c.drawString(50, height - 50, f"Slide {slide_num}")
 
-            # Read and return PDF bytes
-            return pdf_path.read_bytes()
+            # Draw text content
+            c.setFont("Helvetica", 12)
+            y_position = height - 100
+            for text in text_content:
+                # Split long text into lines
+                lines = text.split('\n')
+                for line in lines:
+                    if y_position < 50:  # Start new page if needed
+                        c.showPage()
+                        y_position = height - 50
 
-        except subprocess.CalledProcessError as e:
-            raise RuntimeError(f"LibreOffice conversion failed: {e.stderr}")
-        except subprocess.TimeoutExpired:
-            raise RuntimeError("PDF conversion timed out after 60 seconds")
-        except Exception as e:
-            raise RuntimeError(f"Unexpected error during PDF conversion: {str(e)}")
+                    # Truncate very long lines
+                    if len(line) > 80:
+                        line = line[:80] + "..."
+
+                    c.drawString(50, y_position, line)
+                    y_position -= 20
+
+            # Add page for next slide
+            if slide_num < len(prs.slides):
+                c.showPage()
+
+        # Save PDF
+        c.save()
+        pdf_buffer.seek(0)
+        return pdf_buffer.read()
+
+    except Exception as e:
+        raise RuntimeError(f"PDF conversion failed: {str(e)}")
 
 
-def is_libreoffice_available() -> bool:
+def is_conversion_available() -> bool:
     """
-    Check if LibreOffice is installed and available.
+    Check if PDF conversion is available.
 
     Returns:
-        True if LibreOffice is available, False otherwise
+        True (always available with Python libraries)
     """
-    try:
-        result = subprocess.run(
-            ["soffice", "--version"],
-            capture_output=True,
-            text=True,
-            timeout=5
-        )
-        return result.returncode == 0
-    except (subprocess.TimeoutExpired, FileNotFoundError):
-        return False
+    return True
