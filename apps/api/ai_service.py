@@ -4,11 +4,15 @@ import requests
 import time
 import io
 import google.generativeai as genai
+from google.genai import Client as GenAIClient
 from typing import Dict, List
 from config import settings
 
 # Configure Gemini SDK
 genai.configure(api_key=settings.openai_api_key)
+
+# Initialize new Google GenAI client
+client = GenAIClient(api_key=settings.openai_api_key)
 
 
 SYSTEM_PROMPT = """You are an ESG consultant producing concise, advisory, business-grade assessments for executives. Infer sector and material topics intelligently from the deck text and enrich with sector-specific context. Avoid generic boilerplate and invented KPIs. Use 'Insufficient evidence' only when the deck truly lacks support. Output in English."""
@@ -180,7 +184,7 @@ def format_bullets_as_text(bullets: List[str]) -> str:
 
 def upload_pdf_to_gemini(pdf_bytes: bytes, display_name: str = "factsheet.pdf"):
     """
-    Upload PDF to Gemini File API using official SDK.
+    Upload PDF to Gemini File API using new Google GenAI SDK.
 
     Args:
         pdf_bytes: PDF file content as bytes
@@ -193,26 +197,20 @@ def upload_pdf_to_gemini(pdf_bytes: bytes, display_name: str = "factsheet.pdf"):
         ValueError: If upload fails
     """
     try:
-        # Create a file-like object from bytes
-        pdf_file = io.BytesIO(pdf_bytes)
-        pdf_file.name = display_name
-
-        # Upload file using SDK with explicit parameters
-        uploaded_file = genai.upload_file(
-            pdf_file,
-            mime_type="application/pdf",
-            display_name=display_name,
-            resumable=True
+        # Upload file using new SDK
+        uploaded_file = client.files.upload(
+            file=io.BytesIO(pdf_bytes),
+            config={"display_name": display_name}
         )
 
         # Wait for file to be processed
         max_retries = 20  # Increased retries
         for i in range(max_retries):
-            file_status = genai.get_file(uploaded_file.name)
+            file_status = client.files.get(name=uploaded_file.name)
 
-            if file_status.state.name == "ACTIVE":
+            if file_status.state == "ACTIVE":
                 return uploaded_file
-            elif file_status.state.name == "FAILED":
+            elif file_status.state == "FAILED":
                 raise ValueError(f"File processing failed: {file_status.error}")
 
             # Wait before retrying - exponential backoff
@@ -230,7 +228,7 @@ def generate_esg_summary_from_pdf(
     model_name: str = "gemini-2.5-flash"  # Using latest model
 ) -> Dict[str, any]:
     """
-    Generate ESG summary from PDF using Gemini File API with official SDK.
+    Generate ESG summary from PDF using new Google GenAI SDK.
 
     Args:
         pdf_bytes: PDF file content as bytes
@@ -247,19 +245,17 @@ def generate_esg_summary_from_pdf(
         # Upload PDF to Gemini
         uploaded_file = upload_pdf_to_gemini(pdf_bytes, file_name)
 
-        # Initialize model with simpler config
-        model = genai.GenerativeModel(
-            model_name=model_name,
-            generation_config=genai.types.GenerationConfig(
-                temperature=0.2,
-                max_output_tokens=2048,
-                response_mime_type="application/json"
-            )
-        )
-
-        # Generate content with PDF and prompts
+        # Generate content with PDF and prompts using new SDK
         prompt = f"{SYSTEM_PROMPT}\n\n{PDF_PROMPT}"
-        response = model.generate_content([uploaded_file, prompt])
+        response = client.models.generate_content(
+            model=model_name,
+            contents=[uploaded_file, prompt],
+            config={
+                "temperature": 0.2,
+                "max_output_tokens": 2048,
+                "response_mime_type": "application/json"
+            }
+        )
 
         # Parse response
         raw_text = response.text
