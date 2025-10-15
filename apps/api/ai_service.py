@@ -2,8 +2,13 @@
 import json
 import requests
 import time
+import io
+import google.generativeai as genai
 from typing import Dict, List
 from config import settings
+
+# Configure Gemini SDK
+genai.configure(api_key=settings.openai_api_key)
 
 
 SYSTEM_PROMPT = """You are an ESG consultant producing concise, advisory, business-grade assessments for executives. Infer sector and material topics intelligently from the deck text and enrich with sector-specific context. Avoid generic boilerplate and invented KPIs. Use 'Insufficient evidence' only when the deck truly lacks support. Output in English."""
@@ -173,85 +178,59 @@ def format_bullets_as_text(bullets: List[str]) -> str:
     return "\n".join(f"- {bullet}" for bullet in bullets)
 
 
-def upload_pdf_to_gemini(pdf_bytes: bytes, display_name: str = "factsheet.pdf") -> str:
+def upload_pdf_to_gemini(pdf_bytes: bytes, display_name: str = "factsheet.pdf"):
     """
-    Upload PDF to Gemini File API.
+    Upload PDF to Gemini File API using official SDK.
 
     Args:
         pdf_bytes: PDF file content as bytes
         display_name: Display name for the file
 
     Returns:
-        File URI for use in Gemini API
+        Uploaded file object
 
     Raises:
         ValueError: If upload fails
     """
-    api_key = settings.openai_api_key
-    upload_url = f"https://generativelanguage.googleapis.com/upload/v1beta/files?key={api_key}"
-
-    # Prepare multipart form data
-    files = {
-        'file': (display_name, pdf_bytes, 'application/pdf')
-    }
-
-    metadata = {
-        'file': {
-            'display_name': display_name
-        }
-    }
-
     try:
-        # Upload file
-        response = requests.post(
-            upload_url,
-            files=files,
-            headers={'X-Goog-Upload-Protocol': 'multipart'},
-            json=metadata,
-            timeout=120
-        )
-        response.raise_for_status()
+        # Create a file-like object from bytes
+        pdf_file = io.BytesIO(pdf_bytes)
+        pdf_file.name = display_name
 
-        result = response.json()
-        file_uri = result['file']['uri']
-        file_name = result['file']['name']
+        # Upload file using SDK
+        uploaded_file = genai.upload_file(pdf_file, mime_type="application/pdf", display_name=display_name)
 
         # Wait for file to be processed
         max_retries = 10
         for i in range(max_retries):
-            status_url = f"https://generativelanguage.googleapis.com/v1beta/{file_name}?key={api_key}"
-            status_response = requests.get(status_url, timeout=10)
-            status_response.raise_for_status()
+            file_status = genai.get_file(uploaded_file.name)
 
-            file_status = status_response.json()
-            state = file_status.get('state')
-
-            if state == 'ACTIVE':
-                return file_uri
-            elif state == 'FAILED':
-                raise ValueError(f"File processing failed: {file_status.get('error', 'Unknown error')}")
+            if file_status.state.name == "ACTIVE":
+                return uploaded_file
+            elif file_status.state.name == "FAILED":
+                raise ValueError(f"File processing failed: {file_status.error}")
 
             # Wait before retrying
             time.sleep(2)
 
         raise ValueError("File processing timeout - file did not become ACTIVE")
 
-    except requests.exceptions.RequestException as e:
+    except Exception as e:
         raise ValueError(f"Failed to upload PDF to Gemini: {e}")
 
 
 def generate_esg_summary_from_pdf(
     pdf_bytes: bytes,
     file_name: str = "factsheet.pdf",
-    model: str = "gemini-2.5-flash"
+    model_name: str = "gemini-2.5-flash"
 ) -> Dict[str, any]:
     """
-    Generate ESG summary from PDF using Gemini File API.
+    Generate ESG summary from PDF using Gemini File API with official SDK.
 
     Args:
         pdf_bytes: PDF file content as bytes
         file_name: Display name for the PDF file
-        model: Gemini model to use (default: gemini-2.5-flash)
+        model_name: Gemini model to use (default: gemini-2.5-flash)
 
     Returns:
         Dict with keys: strengths, weaknesses, action_plan, raw_output, model_name
@@ -259,63 +238,44 @@ def generate_esg_summary_from_pdf(
     Raises:
         ValueError: If response cannot be parsed or API fails
     """
-    # Upload PDF to Gemini
-    file_uri = upload_pdf_to_gemini(pdf_bytes, file_name)
-
-    # Generate content using uploaded file
-    api_key = settings.openai_api_key
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
-
-    payload = {
-        "contents": [
-            {
-                "parts": [
-                    {
-                        "file_data": {
-                            "mime_type": "application/pdf",
-                            "file_uri": file_uri
-                        }
-                    },
-                    {"text": SYSTEM_PROMPT},
-                    {"text": PDF_PROMPT}
-                ]
-            }
-        ],
-        "generationConfig": {
-            "temperature": 0.2,
-            "maxOutputTokens": 2048,
-            "responseMimeType": "application/json"
-        }
-    }
-
     try:
-        response = requests.post(url, json=payload, timeout=120)
-        response.raise_for_status()
+        # Upload PDF to Gemini
+        uploaded_file = upload_pdf_to_gemini(pdf_bytes, file_name)
 
-        # Extract response
-        result = response.json()
-        raw_output = result["candidates"][0]["content"]["parts"][0]["text"]
+        # Initialize model
+        model = genai.GenerativeModel(
+            model_name=model_name,
+            generation_config={
+                "temperature": 0.2,
+                "max_output_tokens": 2048,
+                "response_mime_type": "application/json"
+            }
+        )
 
-        # Parse JSON response
+        # Generate content with PDF and prompts
+        prompt = f"{SYSTEM_PROMPT}\n\n{PDF_PROMPT}"
+        response = model.generate_content([uploaded_file, prompt])
+
+        # Parse response
+        raw_text = response.text
+
         try:
-            parsed = json.loads(raw_output)
+            parsed = json.loads(raw_text)
         except json.JSONDecodeError as e:
-            raise ValueError(f"Failed to parse Gemini response as JSON: {e}")
+            raise ValueError(f"Failed to parse Gemini response as JSON: {e}. Raw response: {raw_text[:500]}")
 
         # Validate structure
         if not all(key in parsed for key in ["strengths", "weaknesses", "action_plan"]):
-            raise ValueError("Gemini response missing required keys")
+            raise ValueError(f"Gemini response missing required keys. Got: {list(parsed.keys())}")
 
         return {
             "strengths": parsed["strengths"],
             "weaknesses": parsed["weaknesses"],
             "action_plan": parsed["action_plan"],
             "raw_output": parsed,
-            "model_name": model
+            "model_name": model_name
         }
 
-    except requests.exceptions.RequestException as e:
-        raise ValueError(f"Gemini API request failed: {e}")
-    except (KeyError, IndexError) as e:
-        raise ValueError(f"Gemini API response format error: {e}")
+    except Exception as e:
+        raise ValueError(f"Failed to generate ESG summary from PDF: {e}")
 
