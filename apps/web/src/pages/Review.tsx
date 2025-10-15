@@ -306,7 +306,7 @@ const Review: React.FC = () => {
         )}
 
         {/* Download Links */}
-        {(fileDetail.download_url_original || fileDetail.download_url_regenerated) && (
+        {(fileDetail.download_url_original || fileDetail.download_url_regenerated || fileDetail.download_url_pdf) && (
           <div className="bg-white shadow rounded-lg p-6">
             <h2 className="text-lg font-medium text-gray-900 mb-4">Downloads</h2>
             <div className="space-y-2">
@@ -334,6 +334,19 @@ const Review: React.FC = () => {
                     <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
                   </svg>
                   Download Regenerated PPTX
+                </a>
+              )}
+              {fileDetail.download_url_pdf && (
+                <a
+                  href={fileDetail.download_url_pdf}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center text-gray-600 hover:text-gray-800 text-sm"
+                >
+                  <svg className="h-5 w-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
+                  </svg>
+                  Download PDF (Debug - used for AI analysis)
                 </a>
               )}
             </div>

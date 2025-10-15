@@ -13,7 +13,8 @@ from openpyxl import Workbook
 from config import settings
 from storage import upload_file_to_storage, download_file_from_storage, get_signed_url
 from pptx_utils import extract_text_from_pptx, insert_text_into_ai_summary, truncate_text_for_llm
-from ai_service import generate_esg_summary, format_summary_for_pptx, format_bullets_as_text
+from ai_service import generate_esg_summary, generate_esg_summary_from_pdf, format_summary_for_pptx, format_bullets_as_text
+from pdf_utils import convert_pptx_to_pdf
 
 
 # Initialize FastAPI app
@@ -181,21 +182,35 @@ async def analyze_file(file_id: str):
         file_response = get_supabase_client().table("files").select("*").eq("id", file_id).execute()
         if not file_response.data:
             raise HTTPException(status_code=404, detail="File not found")
-        
+
         file_record = file_response.data[0]
-        
+
         # Download PPTX from storage
         pptx_bytes = download_file_from_storage(get_supabase_client(), file_record["storage_path_original"])
-        
-        # Extract text
-        extracted_text = extract_text_from_pptx(pptx_bytes)
-        
-        # Truncate if needed
-        extracted_text = truncate_text_for_llm(extracted_text)
-        
-        # Generate AI summary
-        summary = generate_esg_summary(extracted_text)
-        
+
+        # Convert PPTX to PDF
+        pdf_bytes = convert_pptx_to_pdf(pptx_bytes)
+
+        # Upload PDF to storage for debug
+        pdf_storage_path = upload_file_to_storage(
+            get_supabase_client(),
+            file_id,
+            pdf_bytes,
+            folder="pdf",
+            extension=".pdf"
+        )
+
+        # Update file record with PDF path
+        get_supabase_client().table("files").update({
+            "storage_path_pdf": pdf_storage_path
+        }).eq("id", file_id).execute()
+
+        # Generate AI summary from PDF
+        summary = generate_esg_summary_from_pdf(
+            pdf_bytes,
+            file_name=file_record.get("original_filename", "factsheet.pdf").replace(".pptx", ".pdf")
+        )
+
         # Create suggestion record
         suggestion_record = {
             "id": str(uuid.uuid4()),
@@ -206,13 +221,13 @@ async def analyze_file(file_id: str):
             "weaknesses": format_bullets_as_text(summary["weaknesses"]),
             "action_plan": format_bullets_as_text(summary["action_plan"])
         }
-        
+
         suggestion_response = get_supabase_client().table("suggestions").insert(suggestion_record).execute()
         created_suggestion = suggestion_response.data[0] if suggestion_response.data else suggestion_record
-        
+
         # Update job status
         get_supabase_client().table("jobs").update({"status": "SUCCEEDED"}).eq("id", job_id).execute()
-        
+
         return created_suggestion
         
     except Exception as e:
@@ -399,19 +414,26 @@ async def get_file(file_id: str):
     # Generate signed URLs
     download_url_original = None
     download_url_regenerated = None
-    
+    download_url_pdf = None
+
     if file_record.get("storage_path_original"):
         try:
             download_url_original = get_signed_url(get_supabase_client(), file_record["storage_path_original"])
         except:
             pass
-    
+
     if file_record.get("storage_path_regenerated"):
         try:
             download_url_regenerated = get_signed_url(get_supabase_client(), file_record["storage_path_regenerated"])
         except:
             pass
-    
+
+    if file_record.get("storage_path_pdf"):
+        try:
+            download_url_pdf = get_signed_url(get_supabase_client(), file_record["storage_path_pdf"])
+        except:
+            pass
+
     return {
         "id": file_record["id"],
         "company_name": file_record.get("company_name"),
@@ -421,7 +443,8 @@ async def get_file(file_id: str):
         "review": review,
         "jobs": jobs,
         "download_url_original": download_url_original,
-        "download_url_regenerated": download_url_regenerated
+        "download_url_regenerated": download_url_regenerated,
+        "download_url_pdf": download_url_pdf
     }
 
 

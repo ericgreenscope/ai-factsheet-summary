@@ -4,7 +4,9 @@ services:
     name: esg-factsheet-api
     runtime: python
     plan: free
-    buildCommand: python --version && python -m pip install --upgrade pip && pip install --no-cache-dir -r apps/api/requirements.txt
+    buildCommand: |
+      apt-get update && apt-get install -y libreoffice-writer libreoffice-impress --no-install-recommends && rm -rf /var/lib/apt/lists/* &&
+      python --version && python -m pip install --upgrade pip && pip install --no-cache-dir -r apps/api/requirements.txt
     startCommand: cd apps/api && uvicorn main:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: SUPABASE_URL

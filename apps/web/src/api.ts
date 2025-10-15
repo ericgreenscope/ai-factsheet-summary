@@ -84,6 +84,7 @@ export interface FileDetail {
   jobs: Job[];
   download_url_original?: string;
   download_url_regenerated?: string;
+  download_url_pdf?: string;
 }
 
 export interface ReviewRequest {

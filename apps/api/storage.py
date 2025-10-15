@@ -12,29 +12,38 @@ def upload_file_to_storage(
     supabase: Client,
     file_id: str,
     file_data: bytes,
-    folder: str = "original"
+    folder: str = "original",
+    extension: str = ".pptx"
 ) -> str:
     """
     Upload a file to Supabase Storage.
-    
+
     Args:
         supabase: Supabase client
         file_id: UUID of the file
         file_data: Binary file data
-        folder: "original" or "regenerated"
-    
+        folder: "original", "regenerated", or "pdf"
+        extension: File extension (default ".pptx")
+
     Returns:
         Storage path (e.g., "factsheets/original/{file_id}.pptx")
     """
-    path = f"{folder}/{file_id}.pptx"
-    
+    path = f"{folder}/{file_id}{extension}"
+
+    # Determine content type based on extension
+    content_types = {
+        ".pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        ".pdf": "application/pdf"
+    }
+    content_type = content_types.get(extension, "application/octet-stream")
+
     # Upload file to storage
     supabase.storage.from_(BUCKET_NAME).upload(
         path=path,
         file=file_data,
-        file_options={"content-type": "application/vnd.openxmlformats-officedocument.presentationml.presentation"}
+        file_options={"content-type": content_type}
     )
-    
+
     return f"{BUCKET_NAME}/{path}"
 
 
