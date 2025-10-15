@@ -197,11 +197,16 @@ def upload_pdf_to_gemini(pdf_bytes: bytes, display_name: str = "factsheet.pdf"):
         pdf_file = io.BytesIO(pdf_bytes)
         pdf_file.name = display_name
 
-        # Upload file using SDK
-        uploaded_file = genai.upload_file(pdf_file, mime_type="application/pdf", display_name=display_name)
+        # Upload file using SDK with explicit parameters
+        uploaded_file = genai.upload_file(
+            pdf_file,
+            mime_type="application/pdf",
+            display_name=display_name,
+            resumable=True
+        )
 
         # Wait for file to be processed
-        max_retries = 10
+        max_retries = 20  # Increased retries
         for i in range(max_retries):
             file_status = genai.get_file(uploaded_file.name)
 
@@ -210,8 +215,8 @@ def upload_pdf_to_gemini(pdf_bytes: bytes, display_name: str = "factsheet.pdf"):
             elif file_status.state.name == "FAILED":
                 raise ValueError(f"File processing failed: {file_status.error}")
 
-            # Wait before retrying
-            time.sleep(2)
+            # Wait before retrying - exponential backoff
+            time.sleep(min(2 ** (i // 3), 10))
 
         raise ValueError("File processing timeout - file did not become ACTIVE")
 
@@ -222,7 +227,7 @@ def upload_pdf_to_gemini(pdf_bytes: bytes, display_name: str = "factsheet.pdf"):
 def generate_esg_summary_from_pdf(
     pdf_bytes: bytes,
     file_name: str = "factsheet.pdf",
-    model_name: str = "gemini-2.5-flash"
+    model_name: str = "gemini-1.5-flash"  # Using stable model
 ) -> Dict[str, any]:
     """
     Generate ESG summary from PDF using Gemini File API with official SDK.
@@ -230,7 +235,7 @@ def generate_esg_summary_from_pdf(
     Args:
         pdf_bytes: PDF file content as bytes
         file_name: Display name for the PDF file
-        model_name: Gemini model to use (default: gemini-2.5-flash)
+        model_name: Gemini model to use (default: gemini-1.5-flash)
 
     Returns:
         Dict with keys: strengths, weaknesses, action_plan, raw_output, model_name
@@ -242,14 +247,14 @@ def generate_esg_summary_from_pdf(
         # Upload PDF to Gemini
         uploaded_file = upload_pdf_to_gemini(pdf_bytes, file_name)
 
-        # Initialize model
+        # Initialize model with simpler config
         model = genai.GenerativeModel(
             model_name=model_name,
-            generation_config={
-                "temperature": 0.2,
-                "max_output_tokens": 2048,
-                "response_mime_type": "application/json"
-            }
+            generation_config=genai.types.GenerationConfig(
+                temperature=0.2,
+                max_output_tokens=2048,
+                response_mime_type="application/json"
+            )
         )
 
         # Generate content with PDF and prompts
