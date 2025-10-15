@@ -15,6 +15,8 @@ services:
         value: AIzaSyBneNuvOrOJFjasUKMwEWhqCbso2AXFiG8
       - key: OPENAI_MODEL
         value: gemini-2.5-flash
+      - key: CLOUDCONVERT_API_KEY
+        sync: false
       - key: CORS_ORIGIN
         sync: false
     healthCheckPath: /healthz

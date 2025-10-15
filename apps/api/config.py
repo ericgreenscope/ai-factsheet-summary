@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     supabase_anon_key: Optional[str] = None
     openai_api_key: str  # Using same env var name for Gemini API key
     openai_model: str = "gemini-2.5-flash"
+    cloudconvert_api_key: Optional[str] = None  # CloudConvert API for PPTX to PDF conversion
     cors_origin: str = "http://localhost:5173"
     
     class Config:

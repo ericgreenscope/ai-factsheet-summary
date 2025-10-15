@@ -1,20 +1,19 @@
-"""PDF conversion utilities for PPTX files."""
+"""PDF conversion utilities for PPTX files using CloudConvert API."""
 import io
-from pptx import Presentation
-from reportlab.lib.pagesizes import letter
-from reportlab.pdfgen import canvas
-from reportlab.lib.utils import ImageReader
-from PIL import Image
-import tempfile
-from pathlib import Path
+import time
+import cloudconvert
+from config import settings
 
 
 def convert_pptx_to_pdf(pptx_bytes: bytes) -> bytes:
     """
-    Convert PPTX file to PDF using Python libraries.
+    Convert PPTX file to PDF using CloudConvert API.
 
-    This creates a simple PDF representation of the PPTX slides.
-    For better quality, consider using a cloud conversion service.
+    This creates a high-quality PDF with all visual elements preserved:
+    - Charts and graphs
+    - Images and pictures
+    - Slide layouts and formatting
+    - Colors and design elements
 
     Args:
         pptx_bytes: PPTX file content as bytes
@@ -23,56 +22,73 @@ def convert_pptx_to_pdf(pptx_bytes: bytes) -> bytes:
         PDF file content as bytes
 
     Raises:
-        RuntimeError: If conversion fails
+        RuntimeError: If conversion fails or API key is missing
     """
     try:
-        # Load presentation
-        prs = Presentation(io.BytesIO(pptx_bytes))
+        # Check API key
+        if not settings.cloudconvert_api_key:
+            raise RuntimeError("CloudConvert API key not configured. Set CLOUDCONVERT_API_KEY environment variable.")
 
-        # Create PDF in memory
-        pdf_buffer = io.BytesIO()
-        c = canvas.Canvas(pdf_buffer, pagesize=letter)
-        width, height = letter
+        # Initialize CloudConvert client
+        cloudconvert.configure(api_key=settings.cloudconvert_api_key, sandbox=False)
 
-        # Process each slide
-        for slide_num, slide in enumerate(prs.slides, 1):
-            # Extract text from slide
-            text_content = []
-            for shape in slide.shapes:
-                if hasattr(shape, "text") and shape.text:
-                    text_content.append(shape.text)
+        # Create a job
+        job = cloudconvert.Job.create(payload={
+            "tasks": {
+                "upload-my-file": {
+                    "operation": "import/upload"
+                },
+                "convert-my-file": {
+                    "operation": "convert",
+                    "input": "upload-my-file",
+                    "output_format": "pdf",
+                    "some_other_option": "value"
+                },
+                "export-my-file": {
+                    "operation": "export/url",
+                    "input": "convert-my-file"
+                }
+            }
+        })
 
-            # Draw slide number
-            c.setFont("Helvetica-Bold", 16)
-            c.drawString(50, height - 50, f"Slide {slide_num}")
+        # Upload PPTX file
+        upload_task_id = job['tasks'][0]['id']
+        upload_task = cloudconvert.Task.find(id=upload_task_id)
+        cloudconvert.Task.upload(file_name='presentation.pptx', task=upload_task, file=io.BytesIO(pptx_bytes))
 
-            # Draw text content
-            c.setFont("Helvetica", 12)
-            y_position = height - 100
-            for text in text_content:
-                # Split long text into lines
-                lines = text.split('\n')
-                for line in lines:
-                    if y_position < 50:  # Start new page if needed
-                        c.showPage()
-                        y_position = height - 50
+        # Wait for job to complete
+        job = cloudconvert.Job.wait(id=job['id'])
 
-                    # Truncate very long lines
-                    if len(line) > 80:
-                        line = line[:80] + "..."
+        # Check for errors
+        if job['status'] == 'error':
+            error_message = "CloudConvert job failed"
+            for task in job.get('tasks', []):
+                if task.get('status') == 'error':
+                    error_message = task.get('message', error_message)
+                    break
+            raise RuntimeError(f"CloudConvert conversion failed: {error_message}")
 
-                    c.drawString(50, y_position, line)
-                    y_position -= 20
+        # Download the converted PDF
+        export_task = None
+        for task in job['tasks']:
+            if task.get('name') == 'export-my-file':
+                export_task = task
+                break
 
-            # Add page for next slide
-            if slide_num < len(prs.slides):
-                c.showPage()
+        if not export_task or not export_task.get('result', {}).get('files'):
+            raise RuntimeError("CloudConvert conversion completed but no output file found")
 
-        # Save PDF
-        c.save()
-        pdf_buffer.seek(0)
-        return pdf_buffer.read()
+        # Get download URL
+        file_info = export_task['result']['files'][0]
+        file_response = cloudconvert.download(filename=file_info['filename'], url=file_info['url'])
 
+        # Read PDF content
+        pdf_bytes = file_response.read()
+
+        return pdf_bytes
+
+    except cloudconvert.exceptions.APIError as e:
+        raise RuntimeError(f"CloudConvert API error: {str(e)}")
     except Exception as e:
         raise RuntimeError(f"PDF conversion failed: {str(e)}")
 
@@ -82,6 +98,6 @@ def is_conversion_available() -> bool:
     Check if PDF conversion is available.
 
     Returns:
-        True (always available with Python libraries)
+        True if CloudConvert API key is configured, False otherwise
     """
-    return True
+    return bool(settings.cloudconvert_api_key)
