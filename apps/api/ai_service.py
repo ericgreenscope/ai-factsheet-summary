@@ -227,7 +227,7 @@ def upload_pdf_to_gemini(pdf_bytes: bytes, display_name: str = "factsheet.pdf"):
 def generate_esg_summary_from_pdf(
     pdf_bytes: bytes,
     file_name: str = "factsheet.pdf",
-    model_name: str = "gemini-1.5-flash"  # Using stable model
+    model_name: str = "gemini-2.5-flash"  # Using latest model
 ) -> Dict[str, any]:
     """
     Generate ESG summary from PDF using Gemini File API with official SDK.
