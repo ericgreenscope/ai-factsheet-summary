@@ -4,15 +4,11 @@ import requests
 import time
 import io
 import google.generativeai as genai
-from google.genai import Client as GenAIClient
 from typing import Dict, List
 from config import settings
 
 # Configure Gemini SDK
 genai.configure(api_key=settings.openai_api_key)
-
-# Initialize new Google GenAI client
-client = GenAIClient(api_key=settings.openai_api_key)
 
 
 SYSTEM_PROMPT = """You are an ESG consultant producing concise, advisory, business-grade assessments for executives. Infer sector and material topics intelligently from the deck text and enrich with sector-specific context. Avoid generic boilerplate and invented KPIs. Use 'Insufficient evidence' only when the deck truly lacks support. Output in English."""
@@ -184,34 +180,60 @@ def format_bullets_as_text(bullets: List[str]) -> str:
 
 def upload_pdf_to_gemini(pdf_bytes: bytes, display_name: str = "factsheet.pdf"):
     """
-    Upload PDF to Gemini File API using new Google GenAI SDK.
+    Upload PDF to Gemini File API using REST API.
 
     Args:
         pdf_bytes: PDF file content as bytes
         display_name: Display name for the file
 
     Returns:
-        Uploaded file object
+        Uploaded file object with name and uri
 
     Raises:
         ValueError: If upload fails
     """
     try:
-        # Upload file using new SDK
-        uploaded_file = client.files.upload(
-            file=io.BytesIO(pdf_bytes),
-            config={"display_name": display_name}
+        api_key = settings.openai_api_key
+
+        # Upload file using REST API
+        upload_url = f"https://generativelanguage.googleapis.com/upload/v1beta/files?key={api_key}"
+
+        # Prepare multipart form data
+        files = {
+            'file': (display_name, pdf_bytes, 'application/pdf'),
+            'file_info': (None, json.dumps({
+                'display_name': display_name
+            }), 'application/json')
+        }
+
+        response = requests.post(
+            upload_url,
+            files=files,
+            timeout=60
         )
+        response.raise_for_status()
+
+        uploaded_file = response.json()
+        file_name = uploaded_file.get('name')
+
+        if not file_name:
+            raise ValueError("Failed to get file name from upload response")
 
         # Wait for file to be processed
-        max_retries = 20  # Increased retries
+        max_retries = 20
         for i in range(max_retries):
-            file_status = client.files.get(name=uploaded_file.name)
+            # Check file status
+            status_url = f"https://generativelanguage.googleapis.com/v1beta/files/{file_name}?key={api_key}"
+            status_response = requests.get(status_url, timeout=10)
+            status_response.raise_for_status()
 
-            if file_status.state == "ACTIVE":
+            file_status = status_response.json()
+            state = file_status.get('state')
+
+            if state == 'ACTIVE':
                 return uploaded_file
-            elif file_status.state == "FAILED":
-                raise ValueError(f"File processing failed: {file_status.error}")
+            elif state == 'FAILED':
+                raise ValueError(f"File processing failed: {file_status.get('error', 'Unknown error')}")
 
             # Wait before retrying - exponential backoff
             time.sleep(min(2 ** (i // 3), 10))
@@ -228,7 +250,7 @@ def generate_esg_summary_from_pdf(
     model_name: str = "gemini-2.5-flash"  # Using latest model
 ) -> Dict[str, any]:
     """
-    Generate ESG summary from PDF using new Google GenAI SDK.
+    Generate ESG summary from PDF using REST API.
 
     Args:
         pdf_bytes: PDF file content as bytes
@@ -245,20 +267,40 @@ def generate_esg_summary_from_pdf(
         # Upload PDF to Gemini
         uploaded_file = upload_pdf_to_gemini(pdf_bytes, file_name)
 
-        # Generate content with PDF and prompts using new SDK
+        # Generate content with PDF and prompts using REST API
         prompt = f"{SYSTEM_PROMPT}\n\n{PDF_PROMPT}"
-        response = client.models.generate_content(
-            model=model_name,
-            contents=[uploaded_file, prompt],
-            config={
-                "temperature": 0.2,
-                "max_output_tokens": 2048,
-                "response_mime_type": "application/json"
-            }
-        )
 
-        # Parse response
-        raw_text = response.text
+        api_key = settings.openai_api_key
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={api_key}"
+
+        payload = {
+            "contents": [
+                {
+                    "parts": [
+                        {
+                            "file_data": {
+                                "mime_type": "application/pdf",
+                                "file_uri": uploaded_file.get('uri')
+                            }
+                        },
+                        {
+                            "text": prompt
+                        }
+                    ]
+                }
+            ],
+            "generationConfig": {
+                "temperature": 0.2,
+                "maxOutputTokens": 2048,
+                "responseMimeType": "application/json"
+            }
+        }
+
+        response = requests.post(url, json=payload, timeout=60)
+        response.raise_for_status()
+
+        result = response.json()
+        raw_text = result["candidates"][0]["content"]["parts"][0]["text"]
 
         try:
             parsed = json.loads(raw_text)
