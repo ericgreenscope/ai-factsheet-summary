@@ -2,7 +2,7 @@ fastapi==0.109.0
 uvicorn[standard]==0.27.0
 python-multipart==0.0.6
 python-pptx==0.6.23
-supabase==2.3.1
+supabase==2.22.0
 requests==2.31.0
 openpyxl==3.1.2
 pydantic==2.10.4
@@ -10,5 +10,5 @@ pydantic-settings==2.7.1
 pytest==7.4.4
 httpx==0.24.1
 google-generativeai==0.8.3
-# Updated dependencies for deployment
+# Updated dependencies for deployment - supabase updated to 2.22.0 to fix proxy parameter error
 
