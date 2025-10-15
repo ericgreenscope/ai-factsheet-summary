@@ -14,7 +14,6 @@ from config import settings
 from storage import upload_file_to_storage, download_file_from_storage, get_signed_url
 from pptx_utils import extract_text_from_pptx, insert_text_into_ai_summary, truncate_text_for_llm
 from ai_service import generate_esg_summary, generate_esg_summary_from_pdf, format_summary_for_pptx, format_bullets_as_text
-from pdf_utils import convert_pptx_to_pdf
 
 
 # Initialize FastAPI app
@@ -98,45 +97,94 @@ async def upload_files(
     company_name: Optional[str] = Form(None)
 ):
     """
-    Upload multiple PPTX files.
-    
+    Upload PPTX and PDF file pairs.
+
+    The user should upload both files at once:
+    - PPTX file: Used for regenerating output with AI summary
+    - PDF file: Used for AI analysis (preserves visual elements)
+
+    Files are matched by base filename (e.g., "report.pptx" and "report.pdf").
+
     Args:
-        files: List of PPTX files
+        files: List of files (must include both .pptx and .pdf)
         company_name: Optional company name
-    
+
     Returns:
         List of created file records
     """
-    results = []
-    
+    # Group files by base name
+    file_pairs = {}
+
     for file in files:
-        # Validate file type
-        if not file.filename.endswith('.pptx'):
-            raise HTTPException(status_code=400, detail=f"File {file.filename} is not a PPTX")
-        
+        filename = file.filename
+
+        # Get base name without extension
+        if filename.endswith('.pptx'):
+            base_name = filename[:-5]  # Remove .pptx
+            file_type = 'pptx'
+        elif filename.endswith('.pdf'):
+            base_name = filename[:-4]  # Remove .pdf
+            file_type = 'pdf'
+        else:
+            raise HTTPException(status_code=400, detail=f"File {filename} must be .pptx or .pdf")
+
+        if base_name not in file_pairs:
+            file_pairs[base_name] = {}
+
+        file_pairs[base_name][file_type] = file
+
+    # Validate all pairs have both PPTX and PDF
+    for base_name, pair in file_pairs.items():
+        if 'pptx' not in pair:
+            raise HTTPException(status_code=400, detail=f"Missing PPTX file for '{base_name}'")
+        if 'pdf' not in pair:
+            raise HTTPException(status_code=400, detail=f"Missing PDF file for '{base_name}'")
+
+    # Process each pair
+    results = []
+
+    for base_name, pair in file_pairs.items():
+        pptx_file = pair['pptx']
+        pdf_file = pair['pdf']
+
         # Generate file ID
         file_id = str(uuid.uuid4())
-        
-        # Read file data
-        file_data = await file.read()
-        
-        # Upload to Supabase Storage
+
+        # Read both files
+        pptx_data = await pptx_file.read()
+        pdf_data = await pdf_file.read()
+
+        # Upload PPTX to storage (original)
         try:
-            storage_path = upload_file_to_storage(
+            pptx_storage_path = upload_file_to_storage(
                 get_supabase_client(),
                 file_id,
-                file_data,
-                folder="original"
+                pptx_data,
+                folder="original",
+                extension=".pptx"
             )
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Failed to upload {file.filename}: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Failed to upload PPTX {pptx_file.filename}: {str(e)}")
 
-        # Insert file record
+        # Upload PDF to storage (for AI analysis)
+        try:
+            pdf_storage_path = upload_file_to_storage(
+                get_supabase_client(),
+                file_id,
+                pdf_data,
+                folder="pdf",
+                extension=".pdf"
+            )
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to upload PDF {pdf_file.filename}: {str(e)}")
+
+        # Insert file record with both paths
         file_record = {
             "id": file_id,
             "company_name": company_name,
-            "original_filename": file.filename,
-            "storage_path_original": storage_path,
+            "original_filename": pptx_file.filename,
+            "storage_path_original": pptx_storage_path,
+            "storage_path_pdf": pdf_storage_path,
             "language": "en"
         }
 
@@ -145,9 +193,9 @@ async def upload_files(
             created_file = response.data[0] if response.data else file_record
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Failed to create file record: {str(e)}")
-        
+
         results.append(created_file)
-    
+
     return results
 
 
@@ -185,30 +233,18 @@ async def analyze_file(file_id: str):
 
         file_record = file_response.data[0]
 
-        # Download PPTX from storage
-        pptx_bytes = download_file_from_storage(get_supabase_client(), file_record["storage_path_original"])
+        # Check if PDF was uploaded
+        if not file_record.get("storage_path_pdf"):
+            raise HTTPException(status_code=400, detail="No PDF file uploaded for this factsheet. Please upload both PPTX and PDF files.")
 
-        # Convert PPTX to PDF
-        pdf_bytes = convert_pptx_to_pdf(pptx_bytes)
-
-        # Upload PDF to storage for debug
-        pdf_storage_path = upload_file_to_storage(
-            get_supabase_client(),
-            file_id,
-            pdf_bytes,
-            folder="pdf",
-            extension=".pdf"
-        )
-
-        # Update file record with PDF path
-        get_supabase_client().table("files").update({
-            "storage_path_pdf": pdf_storage_path
-        }).eq("id", file_id).execute()
+        # Download PDF from storage
+        pdf_bytes = download_file_from_storage(get_supabase_client(), file_record["storage_path_pdf"])
 
         # Generate AI summary from PDF
+        pdf_filename = file_record.get("original_filename", "factsheet.pdf").replace(".pptx", ".pdf")
         summary = generate_esg_summary_from_pdf(
             pdf_bytes,
-            file_name=file_record.get("original_filename", "factsheet.pdf").replace(".pptx", ".pdf")
+            file_name=pdf_filename
         )
 
         # Create suggestion record

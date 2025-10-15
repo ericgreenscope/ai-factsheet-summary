@@ -31,8 +31,8 @@ const Uploader: React.FC<UploaderProps> = ({ onFilesSelected, disabled = false }
     e.stopPropagation()
     setIsDragging(false)
 
-    const files = Array.from(e.dataTransfer.files).filter(file => 
-      file.name.endsWith('.pptx')
+    const files = Array.from(e.dataTransfer.files).filter(file =>
+      file.name.endsWith('.pptx') || file.name.endsWith('.pdf')
     )
 
     if (files.length > 0) {
@@ -69,7 +69,7 @@ const Uploader: React.FC<UploaderProps> = ({ onFilesSelected, disabled = false }
         ref={fileInputRef}
         type="file"
         multiple
-        accept=".pptx"
+        accept=".pptx,.pdf"
         onChange={handleFileSelect}
         className="hidden"
         disabled={disabled}
@@ -95,7 +95,7 @@ const Uploader: React.FC<UploaderProps> = ({ onFilesSelected, disabled = false }
           </span>
           {' or drag and drop'}
         </div>
-        <p className="text-xs text-gray-500">PPTX files only</p>
+        <p className="text-xs text-gray-500">PPTX and PDF files (matching pairs required)</p>
       </div>
     </div>
   )

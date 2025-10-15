@@ -12,7 +12,19 @@
       "Bash(scoop:*)",
       "Bash(cat:*)",
       "Bash(mkdir:*)",
-      "Bash(cp:*)"
+      "Bash(cp:*)",
+      "WebSearch",
+      "WebFetch(domain:ai.google.dev)",
+      "Bash(python:*)",
+      "Bash(curl -s \"https://generativelanguage.googleapis.com/v1beta/models?key=AIzaSyBneNuvOrOJFjasUKMwEWhqCbso2AXFiG8\")",
+      "Bash(curl -s -X POST \"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=AIzaSyBneNuvOrOJFjasUKMwEWhqCbso2AXFiG8\" -H \"Content-Type: application/json\" -d '{\"\"contents\"\":[{\"\"parts\"\":[{\"\"text\"\":\"\"Say hello\"\"}]}]}')",
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$(cat <<''EOF''\nFix Gemini API: Update to gemini-2.5-flash and correct API key format\n\n- Update model from gemini-1.5-flash to gemini-2.5-flash (latest stable)\n- Fix API key typo in .env (was missing ''I'' in AIzaSy...)\n- Update test script with newer model names and remove emoji characters\n- Gemini 2.5 Flash supports 1M token context and multimodal input\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
+      "Bash(git push:*)",
+      "Bash(git commit:*)",
+      "WebFetch(domain:cloudconvert.com)",
+      "WebFetch(domain:developers.zamzar.com)",
+      "WebFetch(domain:pypi.org)"
     ],
     "deny": [],
     "ask": []

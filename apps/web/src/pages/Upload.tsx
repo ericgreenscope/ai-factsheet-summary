@@ -21,6 +21,32 @@ const Upload: React.FC = () => {
       return
     }
 
+    // Validate that files come in PPTX+PDF pairs
+    const pptxFiles = selectedFiles.filter(f => f.name.endsWith('.pptx'))
+    const pdfFiles = selectedFiles.filter(f => f.name.endsWith('.pdf'))
+
+    if (pptxFiles.length === 0 || pdfFiles.length === 0) {
+      setError('Please upload both PPTX and PDF files for each factsheet')
+      return
+    }
+
+    // Check for matching pairs
+    const pptxBasenames = new Set(pptxFiles.map(f => f.name.slice(0, -5))) // Remove .pptx
+    const pdfBasenames = new Set(pdfFiles.map(f => f.name.slice(0, -4)))   // Remove .pdf
+
+    const missingPdf = [...pptxBasenames].filter(base => !pdfBasenames.has(base))
+    const missingPptx = [...pdfBasenames].filter(base => !pptxBasenames.has(base))
+
+    if (missingPdf.length > 0) {
+      setError(`Missing PDF files for: ${missingPdf.join(', ')}`)
+      return
+    }
+
+    if (missingPptx.length > 0) {
+      setError(`Missing PPTX files for: ${missingPptx.join(', ')}`)
+      return
+    }
+
     setUploading(true)
     setError(null)
 
@@ -45,8 +71,12 @@ const Upload: React.FC = () => {
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Upload ESG Factsheets</h1>
           <p className="mt-2 text-sm text-gray-600">
-            Upload one or more PPTX files to analyze. Each file should contain an AI_SUMMARY placeholder shape.
+            Upload PPTX and PDF file pairs for each factsheet. Files should have matching names (e.g., "report.pptx" and "report.pdf").
           </p>
+          <ul className="mt-2 text-sm text-gray-600 list-disc list-inside space-y-1">
+            <li><strong>PPTX file:</strong> Used for regenerating output with AI summary (must contain AI_SUMMARY placeholder)</li>
+            <li><strong>PDF file:</strong> Used for AI analysis (preserves charts, images, and visual elements)</li>
+          </ul>
         </div>
 
         <div className="bg-white shadow rounded-lg p-6 space-y-6">
