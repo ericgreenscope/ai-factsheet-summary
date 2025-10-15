@@ -180,7 +180,7 @@ def format_bullets_as_text(bullets: List[str]) -> str:
 
 def upload_pdf_to_gemini(pdf_bytes: bytes, display_name: str = "factsheet.pdf"):
     """
-    Upload PDF to Gemini File API using REST API.
+    Upload PDF to Gemini File API using resumable upload protocol.
 
     Args:
         pdf_bytes: PDF file content as bytes
@@ -194,27 +194,55 @@ def upload_pdf_to_gemini(pdf_bytes: bytes, display_name: str = "factsheet.pdf"):
     """
     try:
         api_key = settings.openai_api_key
+        base_url = "https://generativelanguage.googleapis.com"
 
-        # Upload file using REST API
-        upload_url = f"https://generativelanguage.googleapis.com/upload/v1beta/files?key={api_key}"
-
-        # Prepare multipart form data
-        files = {
-            'file': (display_name, pdf_bytes, 'application/pdf'),
-            'file_info': (None, json.dumps({
-                'display_name': display_name
-            }), 'application/json')
+        # Step 1: Initial resumable upload request with metadata
+        num_bytes = len(pdf_bytes)
+        initial_headers = {
+            "X-Goog-Upload-Protocol": "resumable",
+            "X-Goog-Upload-Command": "start",
+            "X-Goog-Upload-Header-Content-Length": str(num_bytes),
+            "X-Goog-Upload-Header-Content-Type": "application/pdf",
+            "Content-Type": "application/json"
         }
 
-        response = requests.post(
-            upload_url,
-            files=files,
-            timeout=60
-        )
-        response.raise_for_status()
+        metadata = {
+            "file": {
+                "display_name": display_name
+            }
+        }
 
-        uploaded_file = response.json()
-        file_name = uploaded_file.get('name')
+        initial_url = f"{base_url}/upload/v1beta/files?key={api_key}"
+        initial_response = requests.post(
+            initial_url,
+            headers=initial_headers,
+            json=metadata,
+            timeout=30
+        )
+        initial_response.raise_for_status()
+
+        # Get upload URL from response headers
+        upload_url = initial_response.headers.get("X-Goog-Upload-URL")
+        if not upload_url:
+            raise ValueError("Failed to get upload URL from initial response")
+
+        # Step 2: Upload the actual file bytes
+        upload_headers = {
+            "Content-Length": str(num_bytes),
+            "X-Goog-Upload-Offset": "0",
+            "X-Goog-Upload-Command": "upload, finalize"
+        }
+
+        upload_response = requests.post(
+            upload_url,
+            headers=upload_headers,
+            data=pdf_bytes,
+            timeout=120
+        )
+        upload_response.raise_for_status()
+
+        uploaded_file = upload_response.json()
+        file_name = uploaded_file.get("file", {}).get("name")
 
         if not file_name:
             raise ValueError("Failed to get file name from upload response")
@@ -223,16 +251,16 @@ def upload_pdf_to_gemini(pdf_bytes: bytes, display_name: str = "factsheet.pdf"):
         max_retries = 20
         for i in range(max_retries):
             # Check file status
-            status_url = f"https://generativelanguage.googleapis.com/v1beta/files/{file_name}?key={api_key}"
+            status_url = f"{base_url}/v1beta/{file_name}?key={api_key}"
             status_response = requests.get(status_url, timeout=10)
             status_response.raise_for_status()
 
             file_status = status_response.json()
-            state = file_status.get('state')
+            state = file_status.get("state")
 
-            if state == 'ACTIVE':
-                return uploaded_file
-            elif state == 'FAILED':
+            if state == "ACTIVE":
+                return file_status
+            elif state == "FAILED":
                 raise ValueError(f"File processing failed: {file_status.get('error', 'Unknown error')}")
 
             # Wait before retrying - exponential backoff
@@ -240,6 +268,8 @@ def upload_pdf_to_gemini(pdf_bytes: bytes, display_name: str = "factsheet.pdf"):
 
         raise ValueError("File processing timeout - file did not become ACTIVE")
 
+    except requests.exceptions.RequestException as e:
+        raise ValueError(f"Failed to upload PDF to Gemini: {e}")
     except Exception as e:
         raise ValueError(f"Failed to upload PDF to Gemini: {e}")
 
@@ -280,7 +310,7 @@ def generate_esg_summary_from_pdf(
                         {
                             "file_data": {
                                 "mime_type": "application/pdf",
-                                "file_uri": uploaded_file.get('uri')
+                                "file_uri": uploaded_file.get("uri")
                             }
                         },
                         {
