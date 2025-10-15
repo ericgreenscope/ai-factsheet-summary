@@ -321,21 +321,38 @@ def generate_esg_summary_from_pdf(
             ],
             "generationConfig": {
                 "temperature": 0.2,
-                "maxOutputTokens": 2048,
+                "maxOutputTokens": 8192,
                 "responseMimeType": "application/json"
             }
         }
 
-        response = requests.post(url, json=payload, timeout=60)
+        response = requests.post(url, json=payload, timeout=120)
         response.raise_for_status()
 
         result = response.json()
-        raw_text = result["candidates"][0]["content"]["parts"][0]["text"]
+
+        # Extract response with better error handling
+        try:
+            candidates = result.get("candidates", [])
+            if not candidates:
+                raise ValueError(f"No candidates in response. Full response: {json.dumps(result)[:500]}")
+
+            content = candidates[0].get("content", {})
+            parts = content.get("parts", [])
+            if not parts:
+                raise ValueError(f"No parts in response content. Content: {json.dumps(content)[:500]}")
+
+            raw_text = parts[0].get("text", "")
+            if not raw_text:
+                raise ValueError(f"No text in response parts. Parts: {json.dumps(parts)[:500]}")
+
+        except (KeyError, IndexError) as e:
+            raise ValueError(f"Error extracting response: {e}. Full response: {json.dumps(result)[:500]}")
 
         try:
             parsed = json.loads(raw_text)
         except json.JSONDecodeError as e:
-            raise ValueError(f"Failed to parse Gemini response as JSON: {e}. Raw response: {raw_text[:500]}")
+            raise ValueError(f"Failed to parse Gemini response as JSON: {e}. Raw response: {raw_text[:1000]}")
 
         # Validate structure
         if not all(key in parsed for key in ["strengths", "weaknesses", "action_plan"]):
