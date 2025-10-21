@@ -24,7 +24,15 @@
       "Bash(git commit:*)",
       "WebFetch(domain:cloudconvert.com)",
       "WebFetch(domain:developers.zamzar.com)",
-      "WebFetch(domain:pypi.org)"
+      "WebFetch(domain:pypi.org)",
+      "Bash(npm install:*)",
+      "Bash(winget install:*)",
+      "Bash(curl:*)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:google.github.io)",
+      "Bash(pip install:*)",
+      "Bash(timeout:*)",
+      "Bash(git checkout:*)"
     ],
     "deny": [],
     "ask": []

@@ -86,3 +86,4 @@ CORS_ORIGIN=https://esg-factsheet-web.onrender.com
 ## Why Manual Setup?
 
 Render's `fromService` auto-population was returning service names instead of full URLs, causing `net::ERR_NAME_NOT_RESOLVED` errors. Manual configuration ensures reliable URLs.
+
