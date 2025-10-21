@@ -236,14 +236,14 @@ const Review: React.FC = () => {
                   <label htmlFor="analysis" className="block text-sm font-medium text-gray-700 mb-2">
                     Analysis
                   </label>
-                  <MDEditor
-                    value={analysisFinal}
-                    onChange={setAnalysisFinal}
-                    disabled={saving || approving}
-                    preview="edit"
-                    height={400}
-                    className="w-full"
-                  />
+                   <MDEditor
+                     value={analysisFinal}
+                     onChange={(val) => setAnalysisFinal(val || '')}
+                     disabled={saving || approving}
+                     preview="edit"
+                     height={400}
+                     className="w-full"
+                   />
                 </div>
 
                 <div>
