@@ -55,9 +55,7 @@ def get_supabase_client() -> Client:
 # Pydantic models
 class ReviewRequest(BaseModel):
     suggestion_id: str
-    strengths_final: str
-    weaknesses_final: str
-    action_plan_final: str
+    analysis_text_final: str
     editor_notes: Optional[str] = None
 
 
@@ -253,15 +251,13 @@ async def analyze_file(file_id: str, request: AnalyzeRequest):
             prompt_text=request.prompt
         )
 
-        # Create suggestion record
+        # Create suggestion record with freeform analysis text
         suggestion_record = {
             "id": str(uuid.uuid4()),
             "file_id": file_id,
             "model_name": summary["model_name"],
             "raw_model_output": summary["raw_output"],
-            "strengths": format_bullets_as_text(summary["strengths"]),
-            "weaknesses": format_bullets_as_text(summary["weaknesses"]),
-            "action_plan": format_bullets_as_text(summary["action_plan"])
+            "analysis_text": summary["analysis_text"]
         }
 
         suggestion_response = get_supabase_client().table("suggestions").insert(suggestion_record).execute()
@@ -301,9 +297,7 @@ async def save_review(file_id: str, review: ReviewRequest):
     review_data = {
         "file_id": file_id,
         "suggestion_id": review.suggestion_id,
-        "strengths_final": review.strengths_final,
-        "weaknesses_final": review.weaknesses_final,
-        "action_plan_final": review.action_plan_final,
+        "analysis_text_final": review.analysis_text_final,
         "editor_notes": review.editor_notes,
         "status": "DRAFT"
     }
@@ -361,24 +355,15 @@ async def approve_and_regenerate(file_id: str):
         
         review = review_response.data[0]
         
-        # Parse bullets (split by newlines and remove "- " prefix)
-        def parse_bullets(text: str) -> List[str]:
-            lines = [line.strip() for line in text.split('\n') if line.strip()]
-            return [line.lstrip('- ').strip() for line in lines]
-        
-        strengths = parse_bullets(review["strengths_final"])
-        weaknesses = parse_bullets(review["weaknesses_final"])
-        action_plan = parse_bullets(review["action_plan_final"])
-        
-        # Format summary text
-        summary_text = format_summary_for_pptx(strengths, weaknesses, action_plan)
+        # Use the final analysis text directly
+        analysis_text = review["analysis_text_final"]
         
         # Download original PPTX
         pptx_bytes = download_file_from_storage(get_supabase_client(), file_record["storage_path_original"])
         
         # Insert text into AI_SUMMARY shape
         try:
-            regenerated_pptx = insert_text_into_ai_summary(pptx_bytes, summary_text)
+            regenerated_pptx = insert_text_into_ai_summary(pptx_bytes, analysis_text)
         except ValueError as e:
             # Update job status to failed
             get_supabase_client().table("jobs").update({
@@ -524,7 +509,7 @@ async def export_to_excel():
     ws.title = "ESG Summaries"
     
     # Headers
-    headers = ["File ID", "Company Name", "Filename", "Strengths", "Weaknesses", "Action Plan", "Created At"]
+    headers = ["File ID", "Company Name", "Filename", "Analysis", "Created At"]
     ws.append(headers)
     
     # Data rows
@@ -534,9 +519,7 @@ async def export_to_excel():
             review["file_id"],
             file_info.get("company_name", ""),
             file_info.get("original_filename", ""),
-            review["strengths_final"],
-            review["weaknesses_final"],
-            review["action_plan_final"],
+            review["analysis_text_final"],
             review["created_at"]
         ]
         ws.append(row)

@@ -55,9 +55,7 @@ export interface Suggestion {
   file_id: string;
   model_name: string;
   raw_model_output: any;
-  strengths: string;
-  weaknesses: string;
-  action_plan: string;
+  analysis_text: string;
   created_at: string;
 }
 
@@ -66,9 +64,7 @@ export interface Review {
   file_id: string;
   suggestion_id?: string;
   editor_notes?: string;
-  strengths_final: string;
-  weaknesses_final: string;
-  action_plan_final: string;
+  analysis_text_final: string;
   status: 'DRAFT' | 'APPROVED';
   created_at: string;
   updated_at: string;
@@ -89,9 +85,7 @@ export interface FileDetail {
 
 export interface ReviewRequest {
   suggestion_id: string;
-  strengths_final: string;
-  weaknesses_final: string;
-  action_plan_final: string;
+  analysis_text_final: string;
   editor_notes?: string;
 }
 

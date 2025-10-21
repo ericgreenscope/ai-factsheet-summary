@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import ReviewEditor from '../components/ReviewEditor'
 import PromptModal from '../components/PromptModal'
 import { getFile, saveReview, approveAndRegenerate, analyzeFile, FileDetail } from '../api'
 
@@ -12,9 +11,7 @@ const Review: React.FC = () => {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   
-  const [strengthsFinal, setStrengthsFinal] = useState('')
-  const [weaknessesFinal, setWeaknessesFinal] = useState('')
-  const [actionPlanFinal, setActionPlanFinal] = useState('')
+  const [analysisFinal, setAnalysisFinal] = useState('')
   const [editorNotes, setEditorNotes] = useState('')
   
   const [saving, setSaving] = useState(false)
@@ -31,14 +28,10 @@ const Review: React.FC = () => {
       
       // Pre-fill from review if exists, otherwise from suggestion
       if (data.review) {
-        setStrengthsFinal(data.review.strengths_final)
-        setWeaknessesFinal(data.review.weaknesses_final)
-        setActionPlanFinal(data.review.action_plan_final)
+        setAnalysisFinal(data.review.analysis_text_final)
         setEditorNotes(data.review.editor_notes || '')
       } else if (data.suggestion) {
-        setStrengthsFinal(data.suggestion.strengths)
-        setWeaknessesFinal(data.suggestion.weaknesses)
-        setActionPlanFinal(data.suggestion.action_plan)
+        setAnalysisFinal(data.suggestion.analysis_text)
       }
       
       setError(null)
@@ -69,9 +62,7 @@ const Review: React.FC = () => {
     try {
       await saveReview(id, {
         suggestion_id: fileDetail.suggestion.id,
-        strengths_final: strengthsFinal,
-        weaknesses_final: weaknessesFinal,
-        action_plan_final: actionPlanFinal,
+        analysis_text_final: analysisFinal,
         editor_notes: editorNotes || undefined
       })
       await fetchFileDetail()
@@ -93,9 +84,7 @@ const Review: React.FC = () => {
     try {
       await saveReview(id, {
         suggestion_id: fileDetail.suggestion.id,
-        strengths_final: strengthsFinal,
-        weaknesses_final: weaknessesFinal,
-        action_plan_final: actionPlanFinal,
+        analysis_text_final: analysisFinal,
         editor_notes: editorNotes || undefined
       })
     } catch (err) {
@@ -236,32 +225,26 @@ const Review: React.FC = () => {
           </div>
         )}
 
-        {/* Review Editors */}
+        {/* Analysis Editor */}
         {fileDetail.suggestion && (
           <div className="bg-white shadow rounded-lg p-6 space-y-6">
             <div>
-              <h2 className="text-lg font-medium text-gray-900 mb-4">Edit AI Summary</h2>
+              <h2 className="text-lg font-medium text-gray-900 mb-4">Edit Analysis</h2>
               <div className="space-y-6">
-                <ReviewEditor
-                  label="Strengths"
-                  value={strengthsFinal}
-                  onChange={setStrengthsFinal}
-                  disabled={saving || approving}
-                />
-                
-                <ReviewEditor
-                  label="Weaknesses"
-                  value={weaknessesFinal}
-                  onChange={setWeaknessesFinal}
-                  disabled={saving || approving}
-                />
-                
-                <ReviewEditor
-                  label="Action Plan (12 months)"
-                  value={actionPlanFinal}
-                  onChange={setActionPlanFinal}
-                  disabled={saving || approving}
-                />
+                <div>
+                  <label htmlFor="analysis" className="block text-sm font-medium text-gray-700 mb-2">
+                    Analysis
+                  </label>
+                  <textarea
+                    id="analysis"
+                    value={analysisFinal}
+                    onChange={(e) => setAnalysisFinal(e.target.value)}
+                    disabled={saving || approving}
+                    rows={12}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-50 font-mono text-sm"
+                    placeholder="Analysis text will appear here..."
+                  />
+                </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">

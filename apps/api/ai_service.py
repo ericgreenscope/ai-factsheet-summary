@@ -302,7 +302,7 @@ def generate_esg_summary_from_pdf(
         prompt_text: User-provided prompt for analysis (if None, uses default PDF_PROMPT)
 
     Returns:
-        Dict with keys: strengths, weaknesses, action_plan, raw_output, model_name
+        Dict with keys: analysis_text, raw_output, model_name
 
     Raises:
         ValueError: If response cannot be parsed or API fails
@@ -314,9 +314,6 @@ def generate_esg_summary_from_pdf(
         # Use provided prompt or fall back to default
         if prompt_text is None:
             prompt_text = PDF_PROMPT
-        else:
-            # Append JSON format instruction to user-provided prompt
-            prompt_text = prompt_text + JSON_FORMAT_INSTRUCTION
 
         # Use the prompt text directly
         final_prompt = prompt_text
@@ -343,7 +340,7 @@ def generate_esg_summary_from_pdf(
             "generationConfig": {
                 "temperature": 0.2,
                 "maxOutputTokens": 8192,
-                "responseMimeType": "application/json"
+                "responseMimeType": "text/plain"
             }
         }
 
@@ -363,27 +360,16 @@ def generate_esg_summary_from_pdf(
             if not parts:
                 raise ValueError(f"No parts in response content. Content: {json.dumps(content)[:500]}")
 
-            raw_text = parts[0].get("text", "")
-            if not raw_text:
+            analysis_text = parts[0].get("text", "")
+            if not analysis_text:
                 raise ValueError(f"No text in response parts. Parts: {json.dumps(parts)[:500]}")
 
         except (KeyError, IndexError) as e:
             raise ValueError(f"Error extracting response: {e}. Full response: {json.dumps(result)[:500]}")
 
-        try:
-            parsed = json.loads(raw_text)
-        except json.JSONDecodeError as e:
-            raise ValueError(f"Failed to parse Gemini response as JSON: {e}. Raw response: {raw_text[:1000]}")
-
-        # Validate structure
-        if not all(key in parsed for key in ["strengths", "weaknesses", "action_plan"]):
-            raise ValueError(f"Gemini response missing required keys. Got: {list(parsed.keys())}")
-
         return {
-            "strengths": parsed["strengths"],
-            "weaknesses": parsed["weaknesses"],
-            "action_plan": parsed["action_plan"],
-            "raw_output": parsed,
+            "analysis_text": analysis_text,
+            "raw_output": result,
             "model_name": model_name
         }
 
