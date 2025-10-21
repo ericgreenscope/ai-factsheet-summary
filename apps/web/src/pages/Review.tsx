@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import PromptModal from '../components/PromptModal'
+import MDEditor from '@uiw/react-md-editor'
 import { getFile, saveReview, approveAndRegenerate, analyzeFile, FileDetail } from '../api'
 
 const Review: React.FC = () => {
@@ -235,14 +236,13 @@ const Review: React.FC = () => {
                   <label htmlFor="analysis" className="block text-sm font-medium text-gray-700 mb-2">
                     Analysis
                   </label>
-                  <textarea
-                    id="analysis"
+                  <MDEditor
                     value={analysisFinal}
-                    onChange={(e) => setAnalysisFinal(e.target.value)}
+                    onChange={setAnalysisFinal}
                     disabled={saving || approving}
-                    rows={12}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-50 font-mono text-sm"
-                    placeholder="Analysis text will appear here..."
+                    preview="edit"
+                    height={400}
+                    className="w-full"
                   />
                 </div>
 

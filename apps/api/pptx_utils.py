@@ -4,6 +4,9 @@ from typing import Optional, List, Tuple
 from pptx import Presentation
 from pptx.util import Inches, Pt
 from pptx.enum.text import PP_ALIGN
+from pptx.dml.color import RGBColor
+from markdown_it import MarkdownIt
+from markdown_it.token import Token
 
 
 def extract_text_from_pptx(pptx_bytes: bytes) -> str:
@@ -132,4 +135,182 @@ def truncate_text_for_llm(text: str, max_chars: int = 80000) -> str:
     truncated += "\n\n[... Text truncated to fit context limit ...]"
     
     return truncated
+
+
+def insert_markdown_into_ai_summary(
+    pptx_bytes: bytes,
+    markdown_text: str
+) -> bytes:
+    """
+    Parse Markdown and insert formatted text into AI_SUMMARY placeholder.
+    
+    Args:
+        pptx_bytes: Original PPTX binary data
+        markdown_text: Markdown formatted analysis text
+    
+    Returns:
+        Modified PPTX binary data
+    
+    Raises:
+        ValueError: If AI_SUMMARY shape not found
+    """
+    prs = Presentation(io.BytesIO(pptx_bytes))
+    
+    # Find the AI_SUMMARY shape
+    result = find_ai_summary_shape(prs)
+    if not result:
+        raise ValueError("AI_SUMMARY shape not found in presentation")
+    
+    slide_idx, shape = result
+    
+    # Check if shape has text frame
+    if not hasattr(shape, "text_frame"):
+        raise ValueError("AI_SUMMARY shape does not support text")
+    
+    # Parse Markdown
+    md = MarkdownIt()
+    tokens = md.parse(markdown_text)
+    
+    # Clear existing text
+    text_frame = shape.text_frame
+    text_frame.clear()
+    
+    # Process tokens
+    current_p = text_frame.paragraphs[0]
+    in_list = False
+    is_ordered_list = False
+    list_counter = 0
+    
+    i = 0
+    while i < len(tokens):
+        token = tokens[i]
+        
+        # Headings: h1/h2/h3 -> larger bold text
+        if token.type == "heading_open":
+            level = int(token.tag[1])
+            if i + 1 < len(tokens) and tokens[i + 1].type == "inline":
+                content = tokens[i + 1].content
+                p = text_frame.add_paragraph()
+                p.text = content
+                p.level = 0
+                
+                if level == 1:
+                    p.font.size = Pt(24)
+                elif level == 2:
+                    p.font.size = Pt(20)
+                else:
+                    p.font.size = Pt(16)
+                p.font.bold = True
+                
+                i += 3  # Skip heading_close
+                continue
+        
+        # Bullet lists
+        if token.type == "bullet_list_open":
+            in_list = True
+            is_ordered_list = False
+            list_counter = 0
+            i += 1
+            continue
+        
+        if token.type == "ordered_list_open":
+            in_list = True
+            is_ordered_list = True
+            list_counter = 0
+            i += 1
+            continue
+        
+        if token.type in ("bullet_list_close", "ordered_list_close"):
+            in_list = False
+            i += 1
+            continue
+        
+        # List items
+        if token.type == "list_item_open":
+            i += 1
+            continue
+        
+        if token.type == "list_item_close":
+            i += 1
+            continue
+        
+        # Paragraphs
+        if token.type == "paragraph_open":
+            if i + 1 < len(tokens) and tokens[i + 1].type == "inline":
+                inline_token = tokens[i + 1]
+                p = text_frame.add_paragraph()
+                p.level = 0
+                p.font.size = Pt(12)
+                
+                # Apply list formatting if in a list
+                if in_list:
+                    list_counter += 1
+                    if is_ordered_list:
+                        p.text = f"{list_counter}. "
+                    else:
+                        p.text = "• "
+                
+                # Process inline formatting
+                _apply_inline_formatting(p, inline_token)
+                
+                current_p = p
+                i += 2
+                continue
+        
+        if token.type == "paragraph_close":
+            i += 1
+            continue
+        
+        i += 1
+    
+    # Save to bytes
+    output = io.BytesIO()
+    prs.save(output)
+    output.seek(0)
+    
+    return output.read()
+
+
+def _apply_inline_formatting(paragraph, inline_token):
+    """
+    Apply formatting (bold, italic, code) to inline content in a paragraph.
+    
+    Args:
+        paragraph: python-pptx paragraph object
+        inline_token: Markdown-it inline token
+    """
+    if not inline_token.children:
+        paragraph.text = inline_token.content
+        return
+    
+    # Track formatting state
+    is_bold = False
+    is_italic = False
+    
+    for child in inline_token.children:
+        if child.type == "text":
+            run = paragraph.add_run()
+            run.text = child.content
+            run.font.bold = is_bold
+            run.font.italic = is_italic
+        elif child.type == "strong_open":
+            is_bold = True
+        elif child.type == "strong_close":
+            is_bold = False
+        elif child.type == "em_open":
+            is_italic = True
+        elif child.type == "em_close":
+            is_italic = False
+        elif child.type == "code_inline":
+            run = paragraph.add_run()
+            run.text = child.content
+            run.font.name = "Consolas"
+            run.font.size = Pt(10)
+            run.font.bold = is_bold
+            run.font.italic = is_italic
+        elif child.type == "link_open":
+            # Skip link opening, render text instead
+            pass
+        elif child.type == "link_close":
+            pass
 

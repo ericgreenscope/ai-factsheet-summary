@@ -13,7 +13,9 @@
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-router-dom": "^6.21.1",
-    "axios": "^1.6.5"
+    "axios": "^1.6.5",
+    "@uiw/react-md-editor": "^6.1.1",
+    "@uiw/react-markdown-preview": "^6.1.1"
   },
   "devDependencies": {
     "@types/react": "^18.2.48",

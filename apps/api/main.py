@@ -12,7 +12,7 @@ from openpyxl import Workbook
 
 from config import settings
 from storage import upload_file_to_storage, download_file_from_storage, get_signed_url
-from pptx_utils import extract_text_from_pptx, insert_text_into_ai_summary, truncate_text_for_llm
+from pptx_utils import extract_text_from_pptx, insert_text_into_ai_summary, truncate_text_for_llm, insert_markdown_into_ai_summary
 from ai_service import generate_esg_summary, generate_esg_summary_from_pdf, format_summary_for_pptx, format_bullets_as_text
 
 
@@ -363,7 +363,7 @@ async def approve_and_regenerate(file_id: str):
         
         # Insert text into AI_SUMMARY shape
         try:
-            regenerated_pptx = insert_text_into_ai_summary(pptx_bytes, analysis_text)
+            regenerated_pptx = insert_markdown_into_ai_summary(pptx_bytes, analysis_text)
         except ValueError as e:
             # Update job status to failed
             get_supabase_client().table("jobs").update({
