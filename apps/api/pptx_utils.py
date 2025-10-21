@@ -176,7 +176,6 @@ def insert_markdown_into_ai_summary(
     text_frame.clear()
     
     # Process tokens
-    current_p = text_frame.paragraphs[0]
     in_list = False
     is_ordered_list = False
     list_counter = 0
@@ -189,9 +188,8 @@ def insert_markdown_into_ai_summary(
         if token.type == "heading_open":
             level = int(token.tag[1])
             if i + 1 < len(tokens) and tokens[i + 1].type == "inline":
-                content = tokens[i + 1].content
+                inline_token = tokens[i + 1]
                 p = text_frame.add_paragraph()
-                p.text = content
                 p.level = 0
                 
                 if level == 1:
@@ -201,6 +199,9 @@ def insert_markdown_into_ai_summary(
                 else:
                     p.font.size = Pt(16)
                 p.font.bold = True
+                
+                # Apply inline formatting to heading
+                _apply_inline_formatting(p, inline_token)
                 
                 i += 3  # Skip heading_close
                 continue
@@ -242,18 +243,23 @@ def insert_markdown_into_ai_summary(
                 p.level = 0
                 p.font.size = Pt(12)
                 
-                # Apply list formatting if in a list
+                # Add list prefix if needed
+                list_prefix = ""
                 if in_list:
                     list_counter += 1
                     if is_ordered_list:
-                        p.text = f"{list_counter}. "
+                        list_prefix = f"{list_counter}. "
                     else:
-                        p.text = "• "
+                        list_prefix = "• "
+                
+                # Add prefix as plain text first, then apply inline formatting
+                if list_prefix:
+                    run = p.add_run()
+                    run.text = list_prefix
                 
                 # Process inline formatting
                 _apply_inline_formatting(p, inline_token)
                 
-                current_p = p
                 i += 2
                 continue
         
@@ -274,43 +280,61 @@ def insert_markdown_into_ai_summary(
 def _apply_inline_formatting(paragraph, inline_token):
     """
     Apply formatting (bold, italic, code) to inline content in a paragraph.
+    Properly handles markdown-it token children.
     
     Args:
         paragraph: python-pptx paragraph object
-        inline_token: Markdown-it inline token
+        inline_token: Markdown-it inline token with children
     """
     if not inline_token.children:
-        paragraph.text = inline_token.content
+        # No children, just add the raw content
+        run = paragraph.add_run()
+        run.text = inline_token.content
         return
     
     # Track formatting state
     is_bold = False
     is_italic = False
     
-    for child in inline_token.children:
+    i = 0
+    children = inline_token.children
+    while i < len(children):
+        child = children[i]
+        
         if child.type == "text":
             run = paragraph.add_run()
             run.text = child.content
-            run.font.bold = is_bold
-            run.font.italic = is_italic
+            if is_bold:
+                run.font.bold = True
+            if is_italic:
+                run.font.italic = True
+        
         elif child.type == "strong_open":
             is_bold = True
+        
         elif child.type == "strong_close":
             is_bold = False
+        
         elif child.type == "em_open":
             is_italic = True
+        
         elif child.type == "em_close":
             is_italic = False
+        
         elif child.type == "code_inline":
             run = paragraph.add_run()
             run.text = child.content
             run.font.name = "Consolas"
             run.font.size = Pt(10)
-            run.font.bold = is_bold
-            run.font.italic = is_italic
-        elif child.type == "link_open":
-            # Skip link opening, render text instead
+            if is_bold:
+                run.font.bold = True
+            if is_italic:
+                run.font.italic = True
+        
+        elif child.type in ("link_open", "link_close", "softbreak", "hardbreak"):
+            # Links: render text only (no URL)
+            # Breaks: skip
             pass
-        elif child.type == "link_close":
-            pass
+        
+        i += 1
 
