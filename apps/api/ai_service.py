@@ -47,11 +47,21 @@ Instructions:
 7) Use 'Insufficient evidence' only when truly lacking support.
 
 Return STRICT JSON:
-{{
+{
   "strengths": ["...", "...", "..."],
   "weaknesses": ["...", "...", "..."],
   "action_plan": ["...", "...", "..."]
-}}"""
+}"""
+
+# JSON output format instruction appended to all prompts
+JSON_FORMAT_INSTRUCTION = """
+
+Return STRICT JSON:
+{
+  "strengths": ["...", "...", "..."],
+  "weaknesses": ["...", "...", "..."],
+  "action_plan": ["...", "...", "..."]
+}"""
 
 
 def generate_esg_summary(
@@ -304,8 +314,11 @@ def generate_esg_summary_from_pdf(
         # Use provided prompt or fall back to default
         if prompt_text is None:
             prompt_text = PDF_PROMPT
+        else:
+            # Append JSON format instruction to user-provided prompt
+            prompt_text = prompt_text + JSON_FORMAT_INSTRUCTION
 
-        # Use the prompt text directly - no system prompt prepended
+        # Use the prompt text directly
         final_prompt = prompt_text
 
         api_key = settings.openai_api_key
