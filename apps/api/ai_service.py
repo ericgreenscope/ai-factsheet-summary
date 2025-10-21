@@ -33,6 +33,8 @@ Return STRICT JSON:
   "action_plan": ["...", "...", "..."]
 }}"""
 
+# DEPRECATED: This is now overridden by user-selected prompts from the frontend.
+# Kept as fallback if no prompt_text is provided to generate_esg_summary_from_pdf.
 PDF_PROMPT = """Analyze this ESG factsheet PDF and produce a concise, executive-ready assessment.
 
 Instructions:
@@ -277,7 +279,8 @@ def upload_pdf_to_gemini(pdf_bytes: bytes, display_name: str = "factsheet.pdf"):
 def generate_esg_summary_from_pdf(
     pdf_bytes: bytes,
     file_name: str = "factsheet.pdf",
-    model_name: str = "gemini-2.5-flash"  # Using latest model
+    model_name: str = "gemini-2.5-flash",
+    prompt_text: str = None
 ) -> Dict[str, any]:
     """
     Generate ESG summary from PDF using REST API.
@@ -285,7 +288,8 @@ def generate_esg_summary_from_pdf(
     Args:
         pdf_bytes: PDF file content as bytes
         file_name: Display name for the PDF file
-        model_name: Gemini model to use (default: gemini-1.5-flash)
+        model_name: Gemini model to use (default: gemini-2.5-flash)
+        prompt_text: User-provided prompt for analysis (if None, uses default PDF_PROMPT)
 
     Returns:
         Dict with keys: strengths, weaknesses, action_plan, raw_output, model_name
@@ -297,8 +301,12 @@ def generate_esg_summary_from_pdf(
         # Upload PDF to Gemini
         uploaded_file = upload_pdf_to_gemini(pdf_bytes, file_name)
 
-        # Generate content with PDF and prompts using REST API
-        prompt = f"{SYSTEM_PROMPT}\n\n{PDF_PROMPT}"
+        # Use provided prompt or fall back to default
+        if prompt_text is None:
+            prompt_text = PDF_PROMPT
+
+        # Use the prompt text directly - no system prompt prepended
+        final_prompt = prompt_text
 
         api_key = settings.openai_api_key
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={api_key}"
@@ -314,7 +322,7 @@ def generate_esg_summary_from_pdf(
                             }
                         },
                         {
-                            "text": prompt
+                            "text": final_prompt
                         }
                     ]
                 }

@@ -61,6 +61,10 @@ class ReviewRequest(BaseModel):
     editor_notes: Optional[str] = None
 
 
+class AnalyzeRequest(BaseModel):
+    prompt: str
+
+
 class FileResponse(BaseModel):
     id: str
     company_name: Optional[str]
@@ -201,12 +205,13 @@ async def upload_files(
 
 # Analyze endpoint
 @app.post("/analyze/{file_id}")
-async def analyze_file(file_id: str):
+async def analyze_file(file_id: str, request: AnalyzeRequest):
     """
     Analyze a PPTX file and generate AI summary.
     
     Args:
         file_id: UUID of the file
+        request: AnalyzeRequest containing the prompt text
     
     Returns:
         Created suggestion record
@@ -240,11 +245,12 @@ async def analyze_file(file_id: str):
         # Download PDF from storage
         pdf_bytes = download_file_from_storage(get_supabase_client(), file_record["storage_path_pdf"])
 
-        # Generate AI summary from PDF
+        # Generate AI summary from PDF with user-provided prompt
         pdf_filename = file_record.get("original_filename", "factsheet.pdf").replace(".pptx", ".pdf")
         summary = generate_esg_summary_from_pdf(
             pdf_bytes,
-            file_name=pdf_filename
+            file_name=pdf_filename,
+            prompt_text=request.prompt
         )
 
         # Create suggestion record

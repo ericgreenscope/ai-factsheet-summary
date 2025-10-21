@@ -1,12 +1,15 @@
 import React, { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { listFiles, analyzeFile, getExportExcelUrl, FileRecord } from '../api'
+import PromptModal from '../components/PromptModal'
 
 const FileList: React.FC = () => {
   const [files, setFiles] = useState<FileRecord[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [analyzingIds, setAnalyzingIds] = useState<Set<string>>(new Set())
+  const [showPromptModal, setShowPromptModal] = useState(false)
+  const [pendingFileId, setPendingFileId] = useState<string | null>(null)
 
   const fetchFiles = async () => {
     try {
@@ -28,20 +31,34 @@ const FileList: React.FC = () => {
     return () => clearInterval(interval)
   }, [])
 
-  const handleAnalyze = async (fileId: string) => {
-    setAnalyzingIds(prev => new Set(prev).add(fileId))
+  const handleAnalyzeClick = (fileId: string) => {
+    setPendingFileId(fileId)
+    setShowPromptModal(true)
+  }
+
+  const handlePromptConfirm = async (prompt: string) => {
+    if (!pendingFileId) return
+
+    setShowPromptModal(false)
+    setAnalyzingIds(prev => new Set(prev).add(pendingFileId))
     try {
-      await analyzeFile(fileId)
+      await analyzeFile(pendingFileId, prompt)
       await fetchFiles()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Analysis failed')
     } finally {
       setAnalyzingIds(prev => {
         const newSet = new Set(prev)
-        newSet.delete(fileId)
+        newSet.delete(pendingFileId)
         return newSet
       })
+      setPendingFileId(null)
     }
+  }
+
+  const handlePromptCancel = () => {
+    setShowPromptModal(false)
+    setPendingFileId(null)
   }
 
   const formatDate = (dateString: string) => {
@@ -169,7 +186,7 @@ const FileList: React.FC = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
                       <button
-                        onClick={() => handleAnalyze(file.id)}
+                        onClick={() => handleAnalyzeClick(file.id)}
                         disabled={analyzingIds.has(file.id)}
                         className="text-blue-600 hover:text-blue-900 disabled:opacity-50"
                       >
@@ -189,6 +206,13 @@ const FileList: React.FC = () => {
           </div>
         )}
       </div>
+
+      <PromptModal
+        isOpen={showPromptModal}
+        onConfirm={handlePromptConfirm}
+        onCancel={handlePromptCancel}
+        isLoading={pendingFileId !== null && analyzingIds.has(pendingFileId)}
+      />
     </div>
   )
 }

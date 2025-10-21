@@ -113,8 +113,8 @@ export async function uploadFiles(files: File[], companyName?: string): Promise<
   return response.data;
 }
 
-export async function analyzeFile(fileId: string): Promise<Suggestion> {
-  const response = await apiClient.post<Suggestion>(`/analyze/${fileId}`);
+export async function analyzeFile(fileId: string, prompt: string): Promise<Suggestion> {
+  const response = await apiClient.post<Suggestion>(`/analyze/${fileId}`, { prompt });
   return response.data;
 }
 
