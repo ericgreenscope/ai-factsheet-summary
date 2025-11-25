@@ -66,7 +66,7 @@ Return STRICT JSON:
 
 def generate_esg_summary(
     extracted_text: str,
-    model: str = "gemini-2.5-flash"
+    model: str = "gemini-3-pro-preview"
 ) -> Dict[str, any]:
     """
     Generate ESG summary using Google Gemini API.
@@ -289,7 +289,7 @@ def upload_pdf_to_gemini(pdf_bytes: bytes, display_name: str = "factsheet.pdf"):
 def generate_esg_summary_from_pdf(
     pdf_bytes: bytes,
     file_name: str = "factsheet.pdf",
-    model_name: str = "gemini-2.5-flash",
+    model_name: str = "gemini-3-pro-preview",
     prompt_text: str = None
 ) -> Dict[str, any]:
     """
