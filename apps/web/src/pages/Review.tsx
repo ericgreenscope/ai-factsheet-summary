@@ -534,6 +534,7 @@ const Review: React.FC = () => {
               </div>
             </div>
           )}
+        </div>
       </div>
 
       <PromptModal
