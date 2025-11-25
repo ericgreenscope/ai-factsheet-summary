@@ -1,11 +1,12 @@
 """FastAPI main application for ESG Factsheet AI."""
 import uuid
 import io
+import traceback
 from datetime import datetime
 from typing import List, Optional
-from fastapi import FastAPI, File, UploadFile, HTTPException, Form
+from fastapi import FastAPI, File, UploadFile, HTTPException, Form, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, JSONResponse
 from pydantic import BaseModel
 from supabase import create_client, Client
 from openpyxl import Workbook
@@ -82,7 +83,27 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"],  # Expose all headers
 )
+
+
+# Global exception handler to ensure CORS headers are present on errors
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    """Handle all unhandled exceptions with proper CORS headers."""
+    error_detail = str(exc)
+    print(f"Unhandled exception: {error_detail}")
+    print(traceback.format_exc())
+    
+    return JSONResponse(
+        status_code=500,
+        content={"detail": f"Internal server error: {error_detail}"},
+        headers={
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "*",
+            "Access-Control-Allow-Headers": "*",
+        }
+    )
 
 
 # Health check endpoint
@@ -484,8 +505,19 @@ async def list_files():
     Returns:
         List of file records
     """
-    response = get_supabase_client().table("files").select("*").order("created_at", desc=True).execute()
-    return response.data if response.data else []
+    try:
+        print("Fetching files from Supabase...")
+        supabase = get_supabase_client()
+        print(f"Supabase client obtained: {supabase is not None}")
+        
+        response = supabase.table("files").select("*").order("created_at", desc=True).execute()
+        print(f"Files fetched: {len(response.data) if response.data else 0} records")
+        
+        return response.data if response.data else []
+    except Exception as e:
+        print(f"Error fetching files: {str(e)}")
+        print(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=f"Failed to fetch files: {str(e)}")
 
 
 # Export to Excel endpoint
